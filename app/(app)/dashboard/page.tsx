@@ -11,6 +11,9 @@ import {
   ArrowRight,
   ClipboardList,
   Map,
+  MessageCircle,
+  Trophy,
+  Plus,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -92,6 +95,42 @@ export default function DashboardPage() {
     );
   }
 
+  if (journey.status === "completed") {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back{user?.name ? `, ${user.name}` : ""}
+        </h1>
+
+        <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-6 text-center">
+          <Trophy className="mx-auto h-10 w-10 text-accent" />
+          <h2 className="mt-3 text-lg font-semibold">
+            Journey complete!
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {journey.targetRole
+              ? `You've finished your roadmap towards ${journey.targetRole}.`
+              : "You've finished your career roadmap."}
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Link href={`/journey/${journey._id}/complete`}>
+              <Button variant="accent">
+                View summary
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/diagnostic">
+              <Button variant="secondary">
+                <Plus className="mr-1 h-4 w-4" />
+                Start a new journey
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const steps = allSteps ?? [];
   const completedCount = steps.filter((s) => s.status === "completed").length;
   const totalCount = steps.length;
@@ -106,6 +145,12 @@ export default function DashboardPage() {
   const currentWeekSteps = steps.filter(
     (s) => s.weekNumber === currentWeek,
   );
+
+  const weekCompletedSteps = currentWeekSteps.filter(
+    (s) => s.status === "completed" || s.status === "skipped",
+  ).length;
+  const showCheckInPrompt =
+    weekCompletedSteps > 0 && weekCompletedSteps >= currentWeekSteps.length;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -139,6 +184,28 @@ export default function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {showCheckInPrompt && (
+        <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-4">
+          <div className="flex items-center gap-3">
+            <MessageCircle className="h-5 w-5 shrink-0 text-accent" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                Week {currentWeek} complete — time for your check-in
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Reflect on your progress and unlock next week&apos;s steps.
+              </p>
+            </div>
+            <Link href={`/journey/${journey._id}/check-in`}>
+              <Button variant="accent" size="sm">
+                Check in
+                <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 rounded-xl border border-border p-4">
         <div className="flex items-center justify-between">
