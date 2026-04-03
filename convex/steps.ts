@@ -93,7 +93,58 @@ export const updateStatus = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const step = await ctx.db.get(args.stepId);
+    if (!step) throw new Error("Step not found");
+
     await ctx.db.patch(args.stepId, { status: args.status });
+
+    if (args.status === "completed" || args.status === "skipped") {
+      const weekSteps = await ctx.db
+        .query("steps")
+        .withIndex("by_journeyId_weekNumber", (q) =>
+          q.eq("journeyId", step.journeyId).eq("weekNumber", step.weekNumber),
+        )
+        .collect();
+
+      const allWeekDone = weekSteps.every((s) =>
+        s._id.toString() === args.stepId.toString()
+          ? args.status === "completed" || args.status === "skipped"
+          : s.status === "completed" || s.status === "skipped",
+      );
+
+      if (allWeekDone) {
+        const nextWeek = step.weekNumber + 1;
+        const nextWeekSteps = await ctx.db
+          .query("steps")
+          .withIndex("by_journeyId_weekNumber", (q) =>
+            q.eq("journeyId", step.journeyId).eq("weekNumber", nextWeek),
+          )
+          .collect();
+
+        for (const nextStep of nextWeekSteps) {
+          if (nextStep.status === "locked") {
+            await ctx.db.patch(nextStep._id, { status: "available" });
+          }
+        }
+      }
+
+      const allSteps = await ctx.db
+        .query("steps")
+        .withIndex("by_journeyId_weekNumber", (q) =>
+          q.eq("journeyId", step.journeyId),
+        )
+        .collect();
+
+      const allJourneyDone = allSteps.every((s) =>
+        s._id.toString() === args.stepId.toString()
+          ? args.status === "completed" || args.status === "skipped"
+          : s.status === "completed" || s.status === "skipped",
+      );
+
+      if (allJourneyDone) {
+        await ctx.db.patch(step.journeyId, { status: "completed" });
+      }
+    }
   },
 });
 

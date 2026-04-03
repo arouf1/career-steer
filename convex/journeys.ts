@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 
 export const create = mutation({
   args: {
@@ -70,5 +70,57 @@ export const getById = query({
   args: { journeyId: v.id("journeys") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.journeyId);
+  },
+});
+
+export const getCompletionStats = query({
+  args: { journeyId: v.id("journeys") },
+  handler: async (ctx, args) => {
+    const journey = await ctx.db.get(args.journeyId);
+    if (!journey) return null;
+
+    const allSteps = await ctx.db
+      .query("steps")
+      .withIndex("by_journeyId_weekNumber", (q) =>
+        q.eq("journeyId", args.journeyId),
+      )
+      .collect();
+
+    const stepsCompleted = allSteps.filter(
+      (s) => s.status === "completed" || s.status === "skipped",
+    ).length;
+
+    const weekNumbers = new Set(allSteps.map((s) => s.weekNumber));
+    const activeWeeks = new Set(
+      allSteps
+        .filter((s) => s.status === "completed" || s.status === "skipped")
+        .map((s) => s.weekNumber),
+    );
+
+    const stepsByType: Record<string, number> = {};
+    for (const step of allSteps.filter((s) => s.status === "completed")) {
+      stepsByType[step.type] = (stepsByType[step.type] ?? 0) + 1;
+    }
+
+    return {
+      stepsCompleted,
+      stepsTotal: allSteps.length,
+      weeksTotal: weekNumbers.size,
+      weeksActive: activeWeeks.size,
+      stepsByType,
+      startedAt: journey.startedAt,
+      targetRole: journey.targetRole,
+      lane: journey.lane,
+    };
+  },
+});
+
+export const getAllActive = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("journeys")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
   },
 });
