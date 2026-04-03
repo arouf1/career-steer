@@ -25,7 +25,7 @@ export type JourneyLane = keyof typeof JOURNEY_LANES;
 
 export const STEP_TYPES = {
   cv_rewrite: { label: "CV Rewrite", icon: "FileText" },
-  linkedin_rewrite: { label: "LinkedIn Rewrite", icon: "Linkedin" },
+  linkedin_rewrite: { label: "LinkedIn Rewrite", icon: "Link2" },
   interview_prep: { label: "Interview Prep", icon: "MessageSquare" },
   gap_analysis: { label: "Gap Analysis", icon: "BarChart3" },
   skill_plan: { label: "Skill Plan", icon: "BookOpen" },

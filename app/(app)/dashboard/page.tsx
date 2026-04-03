@@ -56,7 +56,7 @@ export default function DashboardPage() {
     );
   }
 
-  const laneInfo = JOURNEY_LANES[journey.lane];
+  const laneInfo = JOURNEY_LANES[journey.lane as keyof typeof JOURNEY_LANES];
 
   if (!roadmap) {
     return (
@@ -131,23 +131,24 @@ export default function DashboardPage() {
     );
   }
 
-  const steps = allSteps ?? [];
-  const completedCount = steps.filter((s) => s.status === "completed").length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const steps: any[] = allSteps ?? [];
+  const completedCount = steps.filter((s: any) => s.status === "completed").length;
   const totalCount = steps.length;
   const progressPercent =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const currentWeek =
     steps.find(
-      (s) => s.status === "available" || s.status === "in_progress",
+      (s: any) => s.status === "available" || s.status === "in_progress",
     )?.weekNumber ?? 1;
 
   const currentWeekSteps = steps.filter(
-    (s) => s.weekNumber === currentWeek,
+    (s: any) => s.weekNumber === currentWeek,
   );
 
   const weekCompletedSteps = currentWeekSteps.filter(
-    (s) => s.status === "completed" || s.status === "skipped",
+    (s: any) => s.status === "completed" || s.status === "skipped",
   ).length;
   const showCheckInPrompt =
     weekCompletedSteps > 0 && weekCompletedSteps >= currentWeekSteps.length;

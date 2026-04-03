@@ -50,7 +50,7 @@ export const create = internalMutation({
 
 export const generateRoadmap = action({
   args: { journeyId: v.id("journeys") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
     const { generateObject } = await import("ai");
 

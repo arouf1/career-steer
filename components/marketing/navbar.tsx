@@ -40,7 +40,7 @@ export function Navbar() {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard">Dashboard</Link>
               </Button>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
             </div>
           </Show>
         </div>

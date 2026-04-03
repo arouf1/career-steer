@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { MessageSquare, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,19 +12,35 @@ interface ChatAssistantProps {
 
 export function ChatAssistant({ systemPrompt }: ChatAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/ai/chat",
-      body: { systemPrompt },
-    });
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/ai/chat",
+        body: { systemPrompt },
+      }),
+    [systemPrompt],
+  );
+
+  const { messages, sendMessage, status } = useChat({ transport });
+
+  const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || isLoading) return;
+    setInput("");
+    await sendMessage({ text });
+  }
 
   if (!isOpen) {
     return (
@@ -76,7 +93,11 @@ export function ChatAssistant({ systemPrompt }: ChatAssistantProps) {
                   : "bg-muted text-foreground"
               }`}
             >
-              {message.content}
+              {message.parts
+                .filter((p): p is Extract<typeof p, { type: "text" }> => p.type === "text")
+                .map((p, i) => (
+                  <span key={i}>{p.text}</span>
+                ))}
             </div>
           </div>
         ))}
@@ -96,7 +117,7 @@ export function ChatAssistant({ systemPrompt }: ChatAssistantProps) {
       >
         <input
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Type your question…"
           className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent"
         />

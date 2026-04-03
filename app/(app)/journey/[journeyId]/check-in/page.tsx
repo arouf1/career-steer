@@ -25,10 +25,10 @@ export default function CheckInPage({
   const currentWeek = allSteps
     ? (() => {
         const activeStep = allSteps.find(
-          (s) => s.status === "available" || s.status === "in_progress",
+          (s: any) => s.status === "available" || s.status === "in_progress",
         );
         if (activeStep) return activeStep.weekNumber;
-        const maxWeek = Math.max(...allSteps.map((s) => s.weekNumber), 1);
+        const maxWeek = Math.max(...allSteps.map((s: any) => s.weekNumber), 1);
         return maxWeek;
       })()
     : null;
@@ -56,9 +56,9 @@ export default function CheckInPage({
     );
   }
 
-  const weekSteps = allSteps.filter((s) => s.weekNumber === currentWeek);
+  const weekSteps = allSteps.filter((s: any) => s.weekNumber === currentWeek);
   const stepsCompleted = weekSteps.filter(
-    (s) => s.status === "completed" || s.status === "skipped",
+    (s: any) => s.status === "completed" || s.status === "skipped",
   ).length;
   const stepsTotal = weekSteps.length;
 
@@ -76,7 +76,7 @@ export default function CheckInPage({
         userReflection: reflection,
         blockers,
       });
-      setResult(response);
+      setResult(response as { encouragement: string; updatedRecommendations: string[] });
     } finally {
       setIsSubmitting(false);
     }

@@ -89,9 +89,10 @@ export default function RoadmapPage({
     );
   }
 
-  const allSteps = steps ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allSteps: any[] = steps ?? [];
   const completedCount = allSteps.filter(
-    (s) => s.status === "completed",
+    (s: any) => s.status === "completed",
   ).length;
   const totalCount = allSteps.length;
   const progressPercent =
@@ -99,7 +100,7 @@ export default function RoadmapPage({
 
   const currentWeek =
     allSteps.find(
-      (s) => s.status === "available" || s.status === "in_progress",
+      (s: any) => s.status === "available" || s.status === "in_progress",
     )?.weekNumber ?? 1;
 
   return (

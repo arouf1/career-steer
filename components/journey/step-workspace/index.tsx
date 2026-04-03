@@ -81,9 +81,9 @@ export function StepWorkspace({
           )}
       </div>
 
-      {step.output && (
+      {step.output != null && (
         <div className="mt-8 rounded-xl border border-border p-6">
-          <StepOutput stepType={step.type} output={step.output} />
+          <StepOutput stepType={step.type} output={step.output as Record<string, unknown>} />
         </div>
       )}
 

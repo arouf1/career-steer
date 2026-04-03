@@ -82,7 +82,7 @@ export const generateCheckIn = action({
     userReflection: v.union(v.string(), v.null()),
     blockers: v.union(v.string(), v.null()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Record<string, unknown>> => {
     const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
     const { generateObject } = await import("ai");
 
@@ -102,7 +102,7 @@ export const generateCheckIn = action({
     });
 
     const stepsCompleted = weekSteps.filter(
-      (s) => s.status === "completed" || s.status === "skipped",
+      (s: any) => s.status === "completed" || s.status === "skipped",
     ).length;
     const stepsTotal = weekSteps.length;
 

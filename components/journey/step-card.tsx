@@ -6,7 +6,7 @@ import {
   Circle,
   CheckCircle2,
   FileText,
-  Linkedin,
+  Link2,
   MessageSquare,
   BarChart3,
   BookOpen,
@@ -23,7 +23,7 @@ import { STEP_TYPES, type StepType } from "@/lib/constants";
 
 const iconMap: Record<string, React.ElementType> = {
   FileText,
-  Linkedin,
+  Link2,
   MessageSquare,
   BarChart3,
   BookOpen,

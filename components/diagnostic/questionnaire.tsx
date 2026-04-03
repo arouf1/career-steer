@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useAction } from "convex/react";
-import { api } from "@/../convex/_generated/api";
+import { api } from "@/convex/_generated/api";
 import { CurrentState } from "./steps/current-state";
 import { GoalState } from "./steps/goal-state";
 import { Frictions } from "./steps/frictions";

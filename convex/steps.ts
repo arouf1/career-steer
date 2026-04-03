@@ -193,7 +193,7 @@ export const unlockWeek = internalMutation({
 
 export const generateStepOutput = action({
   args: { stepId: v.id("steps") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<unknown> => {
     const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
     const { generateObject, generateText } = await import("ai");
 
@@ -251,7 +251,8 @@ export const generateStepOutput = action({
     try {
       let output: unknown;
 
-      const structuredTypes: Record<string, typeof cvRewriteOutputSchema> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const structuredTypes: Record<string, any> = {
         cv_rewrite: cvRewriteOutputSchema,
         gap_analysis: gapAnalysisOutputSchema,
         interview_prep: interviewPrepOutputSchema,

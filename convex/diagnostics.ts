@@ -65,7 +65,7 @@ export const saveDiagnostic = mutation({
 
 export const generateAnalysis = action({
   args: { diagnosticId: v.id("diagnostics") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Record<string, unknown>> => {
     const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
     const { generateObject } = await import("ai");
 
