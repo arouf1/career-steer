@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, internalQuery } from "./_generated/server";
+import { mutation, query, internalQuery, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const create = mutation({
   args: {
@@ -122,5 +123,30 @@ export const getAllActive = internalQuery({
       .query("journeys")
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
+  },
+});
+
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+
+export const checkForInactiveUsers = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const activeJourneys = await ctx.runQuery(internal.journeys.getAllActive);
+    const now = Date.now();
+    const inactiveJourneyIds: string[] = [];
+
+    for (const journey of activeJourneys) {
+      const lastActivity = journey.startedAt;
+      if (now - lastActivity > TWO_DAYS_MS) {
+        inactiveJourneyIds.push(journey._id);
+      }
+    }
+
+    if (inactiveJourneyIds.length > 0) {
+      console.log(
+        `[nudge] Found ${inactiveJourneyIds.length} inactive journey(s):`,
+        inactiveJourneyIds,
+      );
+    }
   },
 });
