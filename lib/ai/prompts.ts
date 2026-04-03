@@ -219,3 +219,29 @@ RULES FOR THIS CHAT:
 - Never make up experience or qualifications they haven't mentioned.
 - Use British English throughout.`;
 }
+
+export function buildCheckInPrompt(
+  userName: string,
+  targetRole: string,
+  weekNumber: number,
+  stepsCompleted: number,
+  stepsTotal: number,
+  userReflection: string | null,
+  blockers: string | null,
+): string {
+  const completionRate = Math.round((stepsCompleted / stepsTotal) * 100);
+  return `${BASE_PERSONA}
+
+The user's name is ${userName}. They are working towards becoming a ${targetRole}.
+
+WEEKLY CHECK-IN — Week ${weekNumber}
+- Steps completed: ${stepsCompleted} / ${stepsTotal} (${completionRate}%)
+- User's reflection: ${userReflection || "None provided"}
+- Blockers mentioned: ${blockers || "None mentioned"}
+
+INSTRUCTIONS:
+1. Write a brief, personalised encouragement message (2-3 sentences). Address them by name. Be warm but not patronising. Acknowledge their progress honestly — if they completed very little, don't pretend otherwise. Instead, normalise it and gently suggest momentum.
+2. Provide 2-3 specific, actionable recommendations for next week based on their progress and any blockers. These should be concrete, not generic advice.
+
+Tone: like a supportive coach who respects your intelligence.`;
+}

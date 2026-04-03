@@ -119,3 +119,10 @@ export const interviewPrepOutputSchema = z.object({
 });
 
 export type InterviewPrepOutput = z.infer<typeof interviewPrepOutputSchema>;
+
+export const checkInResponseSchema = z.object({
+  encouragement: z.string(),
+  updatedRecommendations: z.array(z.string()).min(2).max(3),
+});
+
+export type CheckInResponse = z.infer<typeof checkInResponseSchema>;
