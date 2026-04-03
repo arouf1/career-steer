@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { query, internalMutation, action } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 
 export const getByJourneyAndWeek = query({
   args: {
@@ -29,7 +29,7 @@ export const getAllByJourney = query({
   },
 });
 
-export const save = mutation({
+export const save = internalMutation({
   args: {
     journeyId: v.id("journeys"),
     weekNumber: v.number(),
@@ -127,7 +127,7 @@ export const generateCheckIn = action({
       ),
     });
 
-    await ctx.runMutation(api.progressLogs.save, {
+    await ctx.runMutation(internal.progressLogs.save, {
       journeyId: args.journeyId,
       weekNumber: args.weekNumber,
       stepsCompleted,
@@ -139,7 +139,7 @@ export const generateCheckIn = action({
     });
 
     const nextWeek = args.weekNumber + 1;
-    await ctx.runMutation(api.steps.unlockWeek, {
+    await ctx.runMutation(internal.steps.unlockWeek, {
       journeyId: args.journeyId,
       weekNumber: nextWeek,
     });

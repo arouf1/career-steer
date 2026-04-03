@@ -107,7 +107,8 @@ export default defineSchema({
     targetTimeline: v.union(v.string(), v.null()),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_status", ["userId", "status"]),
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_status", ["status"]),
 
   roadmaps: defineTable({
     journeyId: v.id("journeys"),

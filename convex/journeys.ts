@@ -121,7 +121,7 @@ export const getAllActive = internalQuery({
   handler: async (ctx) => {
     return await ctx.db
       .query("journeys")
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
   },
 });

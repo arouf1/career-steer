@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { mutation, internalMutation, query, action } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 
 export const saveDiagnostic = mutation({
   args: {
@@ -92,7 +92,7 @@ export const generateAnalysis = action({
       prompt: buildDiagnosticPrompt(user.name, user.profile, diagnostic.answers),
     });
 
-    await ctx.runMutation(api.diagnostics.saveAnalysis, {
+    await ctx.runMutation(internal.diagnostics.saveAnalysis, {
       diagnosticId: args.diagnosticId,
       analysis: object,
     });
@@ -101,7 +101,7 @@ export const generateAnalysis = action({
   },
 });
 
-export const saveAnalysis = mutation({
+export const saveAnalysis = internalMutation({
   args: {
     diagnosticId: v.id("diagnostics"),
     analysis: v.object({

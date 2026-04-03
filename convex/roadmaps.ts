@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internalMutation, query, action } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 
 export const getByJourneyId = query({
   args: { journeyId: v.id("journeys") },
@@ -15,7 +15,7 @@ export const getByJourneyId = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     journeyId: v.id("journeys"),
     overview: v.string(),
@@ -96,7 +96,7 @@ export const generateRoadmap = action({
       }),
     });
 
-    const roadmapId = await ctx.runMutation(api.roadmaps.create, {
+    const roadmapId = await ctx.runMutation(internal.roadmaps.create, {
       journeyId: args.journeyId,
       overview: object.overview,
       durationWeeks: object.durationWeeks,
@@ -110,7 +110,7 @@ export const generateRoadmap = action({
     for (const milestone of object.milestones) {
       for (let i = 0; i < milestone.steps.length; i++) {
         const step = milestone.steps[i];
-        await ctx.runMutation(api.steps.create, {
+        await ctx.runMutation(internal.steps.create, {
           roadmapId,
           journeyId: args.journeyId,
           weekNumber: milestone.weekNumber,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Show, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -22,14 +23,26 @@ export function Navbar() {
           >
             Pricing
           </Link>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-in">Sign in</Link>
-            </Button>
-            <Button variant="accent" size="sm" asChild>
-              <Link href="/sign-up">Get started</Link>
-            </Button>
-          </div>
+
+          <Show when="signed-out">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+              <Button variant="accent" size="sm" asChild>
+                <Link href="/sign-up">Get started</Link>
+              </Button>
+            </div>
+          </Show>
+
+          <Show when="signed-in">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </Show>
         </div>
       </nav>
     </header>

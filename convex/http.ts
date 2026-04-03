@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { Webhook } from "svix";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -49,7 +49,7 @@ http.route({
 
     switch (type) {
       case "user.created":
-        await ctx.runMutation(api.users.createUser, {
+        await ctx.runMutation(internal.users.createUser, {
           clerkId: data.id,
           email: data.email_addresses[0]?.email_address ?? "",
           name:
@@ -59,7 +59,7 @@ http.route({
         break;
 
       case "user.updated":
-        await ctx.runMutation(api.users.updateUser, {
+        await ctx.runMutation(internal.users.updateUser, {
           clerkId: data.id,
           email: data.email_addresses[0]?.email_address,
           name:
@@ -69,7 +69,7 @@ http.route({
         break;
 
       case "user.deleted":
-        await ctx.runMutation(api.users.deleteUser, {
+        await ctx.runMutation(internal.users.deleteUser, {
           clerkId: data.id,
         });
         break;

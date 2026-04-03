@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { mutation, internalMutation, query, action } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     roadmapId: v.id("roadmaps"),
     journeyId: v.id("journeys"),
@@ -148,7 +148,7 @@ export const updateStatus = mutation({
   },
 });
 
-export const setGenerationStatus = mutation({
+export const setGenerationStatus = internalMutation({
   args: {
     stepId: v.id("steps"),
     generationStatus: v.union(
@@ -170,7 +170,7 @@ export const setGenerationStatus = mutation({
   },
 });
 
-export const unlockWeek = mutation({
+export const unlockWeek = internalMutation({
   args: {
     journeyId: v.id("journeys"),
     weekNumber: v.number(),
@@ -216,7 +216,7 @@ export const generateStepOutput = action({
     if (!diagnostic || !diagnostic.analysis)
       throw new Error("Diagnostic analysis not found");
 
-    await ctx.runMutation(api.steps.setGenerationStatus, {
+    await ctx.runMutation(internal.steps.setGenerationStatus, {
       stepId: args.stepId,
       generationStatus: "generating",
     });
@@ -267,7 +267,7 @@ export const generateStepOutput = action({
         output = { content: result.text };
       }
 
-      await ctx.runMutation(api.steps.setGenerationStatus, {
+      await ctx.runMutation(internal.steps.setGenerationStatus, {
         stepId: args.stepId,
         generationStatus: "completed",
         output,
@@ -275,7 +275,7 @@ export const generateStepOutput = action({
 
       return output;
     } catch (error) {
-      await ctx.runMutation(api.steps.setGenerationStatus, {
+      await ctx.runMutation(internal.steps.setGenerationStatus, {
         stepId: args.stepId,
         generationStatus: "failed",
       });
