@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { OPENROUTER_MODELS } from "../lib/ai/openrouter-models";
 import { query, internalMutation, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
@@ -114,7 +115,7 @@ export const generateCheckIn = action({
     });
 
     const { object } = await generateObject({
-      model: openrouter.chat("google/gemini-2.5-flash"),
+      model: openrouter.chat(OPENROUTER_MODELS.flashLite),
       schema: checkInResponseSchema,
       prompt: buildCheckInPrompt(
         user.name,

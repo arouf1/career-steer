@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { OPENROUTER_MODELS } from "../lib/ai/openrouter-models";
 import { mutation, internalMutation, query, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
@@ -13,7 +14,10 @@ export const saveDiagnostic = mutation({
       ),
       industry: v.string(),
       salaryBand: v.string(),
-      location: v.string(),
+      location: v.union(
+        v.string(),
+        v.object({ display: v.string(), canonical: v.string() }),
+      ),
       education: v.string(),
     }),
     answers: v.object({
@@ -87,7 +91,7 @@ export const generateAnalysis = action({
     });
 
     const { object } = await generateObject({
-      model: openrouter.chat("google/gemini-2.5-pro"),
+      model: openrouter.chat(OPENROUTER_MODELS.pro),
       schema: diagnosticAnalysisSchema,
       prompt: buildDiagnosticPrompt(user.name, user.profile, diagnostic.answers),
     });
@@ -130,6 +134,7 @@ export const saveAnalysis = internalMutation({
                 v.literal("partial"),
                 v.literal("gap"),
               ),
+              reasoning: v.optional(v.string()),
             }),
           ),
         }),

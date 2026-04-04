@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { OPENROUTER_MODELS } from "../lib/ai/openrouter-models";
 import { internalMutation, query, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
@@ -78,7 +79,7 @@ export const generateRoadmap = action({
     });
 
     const { object } = await generateObject({
-      model: openrouter.chat("google/gemini-2.5-pro"),
+      model: openrouter.chat(OPENROUTER_MODELS.pro),
       schema: roadmapGenerationSchema,
       prompt: buildRoadmapPrompt({
         userName: user.name,

@@ -17,7 +17,10 @@ export default defineSchema({
         ),
         industry: v.string(),
         salaryBand: v.string(),
-        location: v.string(),
+        location: v.union(
+          v.string(),
+          v.object({ display: v.string(), canonical: v.string() }),
+        ),
         education: v.string(),
       }),
       v.null()
@@ -79,6 +82,7 @@ export default defineSchema({
                   v.literal("partial"),
                   v.literal("gap")
                 ),
+                reasoning: v.optional(v.string()),
               })
             ),
           })
@@ -194,4 +198,102 @@ export default defineSchema({
     generationCount: v.number(),
     chatMessageCount: v.number(),
   }).index("by_userId_date", ["userId", "date"]),
+
+  jobSearches: defineTable({
+    userId: v.id("users"),
+    journeyId: v.id("journeys"),
+    query: v.string(),
+    location: v.optional(v.string()),
+    fetchedAt: v.number(),
+    jobs: v.array(
+      v.object({
+        title: v.string(),
+        companyName: v.string(),
+        location: v.string(),
+        description: v.string(),
+        salary: v.optional(v.string()),
+        schedule: v.optional(v.string()),
+        postedAt: v.optional(v.string()),
+        applyLink: v.optional(v.string()),
+        shareLink: v.optional(v.string()),
+        highlights: v.optional(
+          v.object({
+            qualifications: v.optional(v.array(v.string())),
+            responsibilities: v.optional(v.array(v.string())),
+          })
+        ),
+        thumbnail: v.optional(v.string()),
+      })
+    ),
+  })
+    .index("by_journeyId", ["journeyId"])
+    .index("by_userId_and_journeyId", ["userId", "journeyId"]),
+
+  stepEntries: defineTable({
+    stepId: v.id("steps"),
+    journeyId: v.id("journeys"),
+    taskIndex: v.number(),
+    content: v.string(),
+    updatedAt: v.number(),
+    grade: v.optional(
+      v.object({
+        letter: v.string(),
+        summary: v.string(),
+        strengths: v.array(v.string()),
+        improvements: v.array(v.string()),
+      })
+    ),
+  })
+    .index("by_stepId", ["stepId"])
+    .index("by_stepId_and_taskIndex", ["stepId", "taskIndex"]),
+
+  jobInsights: defineTable({
+    jobSearchId: v.id("jobSearches"),
+    journeyId: v.id("journeys"),
+    generatedAt: v.number(),
+    insights: v.object({
+      skillDemand: v.array(
+        v.object({
+          skill: v.string(),
+          frequency: v.number(),
+          totalJobs: v.number(),
+          importance: v.union(
+            v.literal("critical"),
+            v.literal("important"),
+            v.literal("nice_to_have")
+          ),
+        })
+      ),
+      salaryAnalysis: v.object({
+        lowestSeen: v.optional(v.string()),
+        highestSeen: v.optional(v.string()),
+        mostCommonRange: v.optional(v.string()),
+        commentary: v.string(),
+      }),
+      industryClusters: v.array(
+        v.object({
+          category: v.string(),
+          companies: v.array(v.string()),
+          typicalRequirements: v.array(v.string()),
+        })
+      ),
+      gapAlignment: v.array(
+        v.object({
+          skill: v.string(),
+          userLevel: v.union(
+            v.literal("strong"),
+            v.literal("partial"),
+            v.literal("gap"),
+            v.literal("unknown")
+          ),
+          marketDemand: v.number(),
+          commentary: v.string(),
+        })
+      ),
+      keyPatterns: v.array(v.string()),
+      overallNarrative: v.string(),
+    }),
+  })
+    .index("by_jobSearchId", ["jobSearchId"])
+    .index("by_journeyId", ["journeyId"]),
 });

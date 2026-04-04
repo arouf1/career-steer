@@ -27,6 +27,7 @@ export function DashboardView() {
     api.steps.getAllByJourney,
     journey ? { journeyId: journey._id } : "skip",
   );
+  const allJourneys = useQuery(api.journeys.getAllByUser);
 
   if (user === undefined) {
     return (
@@ -37,14 +38,16 @@ export function DashboardView() {
   }
 
   if (!journey) {
+    const pastJourneyCount = allJourneys?.length ?? 0;
     return (
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold tracking-tight">
           Welcome{user?.name ? `, ${user.name}` : ""}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Your career journey starts here. Complete the diagnostic to get your
-          personalised roadmap.
+          {pastJourneyCount > 0
+            ? `You have ${pastJourneyCount} past journey${pastJourneyCount === 1 ? "" : "s"}. Resume one from the sidebar, or start fresh.`
+            : "Your career journey starts here. Complete the diagnostic to get your personalised roadmap."}
         </p>
         <Link href="/diagnostic">
           <Button className="mt-6" variant="accent" size="lg">

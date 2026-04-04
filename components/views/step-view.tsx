@@ -4,7 +4,10 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { StepWorkspace } from "@/components/journey/step-workspace";
-import { buildChatSystemPrompt } from "@/lib/ai/prompts";
+import {
+  buildChatSystemPrompt,
+  buildJobListingsContext,
+} from "@/lib/ai/prompts";
 import { Loader2 } from "lucide-react";
 
 export function StepView({
@@ -19,6 +22,7 @@ export function StepView({
     journeyId,
   });
   const user = useQuery(api.users.getCurrentUser);
+  const cachedJobs = useQuery(api.jobSearches.getLatest, { journeyId });
 
   if (step === undefined || journey === undefined || user === undefined) {
     return (
@@ -36,6 +40,10 @@ export function StepView({
     );
   }
 
+  const jobListingsContext = cachedJobs?.jobs
+    ? buildJobListingsContext(cachedJobs.jobs)
+    : undefined;
+
   const chatSystemPrompt = buildChatSystemPrompt({
     userName: user?.name ?? "there",
     stepType: step.type,
@@ -43,6 +51,7 @@ export function StepView({
     lane: journey.lane,
     targetRole: journey.targetRole,
     currentRole: user?.profile?.currentRole ?? "Unknown",
+    jobListingsContext: jobListingsContext || undefined,
   });
 
   return (
@@ -50,6 +59,8 @@ export function StepView({
       step={step}
       journeyId={journeyId}
       chatSystemPrompt={chatSystemPrompt}
+      targetRole={journey.targetRole ?? undefined}
+      userLocation={user?.profile?.location}
     />
   );
 }

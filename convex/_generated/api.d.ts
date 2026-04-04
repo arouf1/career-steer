@@ -11,9 +11,12 @@
 import type * as crons from "../crons.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
+import type * as jobInsights from "../jobInsights.js";
+import type * as jobSearches from "../jobSearches.js";
 import type * as journeys from "../journeys.js";
 import type * as progressLogs from "../progressLogs.js";
 import type * as roadmaps from "../roadmaps.js";
+import type * as stepEntries from "../stepEntries.js";
 import type * as steps from "../steps.js";
 import type * as users from "../users.js";
 
@@ -27,9 +30,12 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   diagnostics: typeof diagnostics;
   http: typeof http;
+  jobInsights: typeof jobInsights;
+  jobSearches: typeof jobSearches;
   journeys: typeof journeys;
   progressLogs: typeof progressLogs;
   roadmaps: typeof roadmaps;
+  stepEntries: typeof stepEntries;
   steps: typeof steps;
   users: typeof users;
 }>;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { ProfileImport } from "./profile-import";
 import { CurrentState } from "./steps/current-state";
 import { GoalState } from "./steps/goal-state";
 import { Frictions } from "./steps/frictions";
@@ -16,7 +17,7 @@ interface Profile {
   experienceLevel: "early" | "mid" | "senior";
   industry: string;
   salaryBand: string;
-  location: string;
+  location: string | { display: string; canonical: string };
   education: string;
 }
 
@@ -47,12 +48,14 @@ const STEP_LABELS = [
   "Readiness",
 ];
 
+const CV_UPLOAD_STEP = -1;
+
 export function Questionnaire() {
   const router = useRouter();
   const saveDiagnostic = useMutation(api.diagnostics.saveDiagnostic);
   const generateAnalysis = useAction(api.diagnostics.generateAnalysis);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(CV_UPLOAD_STEP);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
@@ -95,24 +98,41 @@ export function Questionnaire() {
     return <ProcessingScreen />;
   }
 
+  const isFormStep = currentStep >= 0;
+
   return (
     <div className="space-y-8">
-      <div className="mx-auto max-w-lg">
-        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Step {currentStep + 1} of {STEP_LABELS.length}
-          </span>
-          <span>{STEP_LABELS[currentStep]}</span>
+      {isFormStep && (
+        <div className="mx-auto max-w-lg">
+          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Step {currentStep + 1} of {STEP_LABELS.length}
+            </span>
+            <span>{STEP_LABELS[currentStep]}</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted">
+            <div
+              className="h-1.5 rounded-full bg-accent transition-all duration-300"
+              style={{
+                width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%`,
+              }}
+            />
+          </div>
         </div>
-        <div className="h-1.5 w-full rounded-full bg-muted">
-          <div
-            className="h-1.5 rounded-full bg-accent transition-all duration-300"
-            style={{
-              width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%`,
-            }}
-          />
-        </div>
-      </div>
+      )}
+
+      {currentStep === CV_UPLOAD_STEP && (
+        <ProfileImport
+          onExtracted={(profile) => {
+            setFormData((prev) => ({
+              ...prev,
+              profile: { ...prev.profile, ...profile },
+            }));
+            setCurrentStep(0);
+          }}
+          onSkip={() => setCurrentStep(0)}
+        />
+      )}
 
       {currentStep === 0 && (
         <CurrentState

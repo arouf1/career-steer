@@ -5,7 +5,7 @@ import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 
 interface GenerateButtonProps {
   stepId: Id<"steps">;
@@ -30,15 +30,12 @@ export function GenerateButton({
     }
   };
 
-  const isGenerating = generationStatus === "generating" || isTriggering;
-
-  if (isGenerating) {
-    return (
-      <Button variant="accent" disabled>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Generating…
-      </Button>
-    );
+  if (
+    generationStatus === "idle" ||
+    generationStatus === "generating" ||
+    isTriggering
+  ) {
+    return null;
   }
 
   if (generationStatus === "failed") {
@@ -50,19 +47,10 @@ export function GenerateButton({
     );
   }
 
-  if (generationStatus === "completed") {
-    return (
-      <Button variant="secondary" onClick={handleGenerate}>
-        <RefreshCw className="mr-2 h-4 w-4" />
-        Regenerate
-      </Button>
-    );
-  }
-
   return (
-    <Button variant="accent" onClick={handleGenerate}>
-      <Sparkles className="mr-2 h-4 w-4" />
-      Generate
+    <Button variant="secondary" onClick={handleGenerate}>
+      <RefreshCw className="mr-2 h-4 w-4" />
+      Regenerate
     </Button>
   );
 }

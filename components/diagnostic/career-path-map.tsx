@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, type MouseEvent } from "react";
 import {
   ReactFlow,
   type Node,
@@ -12,10 +12,17 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { cn } from "@/lib/utils";
+import {
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
+} from "@/components/ui/hover-card";
 
 interface BridgeSkill {
   skill: string;
   level: "strong" | "partial" | "gap";
+  reasoning?: string;
 }
 
 interface PathMapRole {
@@ -31,6 +38,7 @@ interface CareerPathMapProps {
   pathMapData: PathMapRole[];
   selectedRole: string | null;
   onSelectRole: (role: string) => void;
+  className?: string;
 }
 
 const LEVEL_COLOURS = {
@@ -53,35 +61,74 @@ function CurrentRoleNode({ data }: NodeProps) {
   );
 }
 
+const LEVEL_LABELS: Record<string, string> = {
+  strong: "Strong",
+  partial: "Partial",
+  gap: "Gap",
+};
+
 function BridgeSkillNode({ data }: NodeProps) {
   const level = data.level as keyof typeof LEVEL_COLOURS;
   const colour = LEVEL_COLOURS[level];
-  return (
+  const reasoning = data.reasoning as string | undefined;
+
+  const pill = (
     <div
       className="rounded-full border-2 px-3 py-1.5 text-xs font-medium"
-      style={{ borderColor: colour, color: colour, backgroundColor: `${colour}10` }}
+      style={{
+        borderColor: colour,
+        color: colour,
+        backgroundColor: `${colour}10`,
+      }}
     >
       <Handle type="target" position={Position.Left} className="opacity-0" />
       {data.label as string}
       <Handle type="source" position={Position.Right} className="opacity-0" />
     </div>
   );
+
+  if (!reasoning) return pill;
+
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>{pill}</HoverCardTrigger>
+      <HoverCardContent side="top" className="w-72 text-left">
+        <p className="text-sm font-semibold text-foreground">
+          {data.label as string}
+        </p>
+        <span
+          className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          style={{
+            color: colour,
+            backgroundColor: `${colour}15`,
+          }}
+        >
+          {LEVEL_LABELS[level] ?? level}
+        </span>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          {reasoning}
+        </p>
+      </HoverCardContent>
+    </HoverCard>
+  );
 }
 
 function TargetRoleNode({ data }: NodeProps) {
   const isSelected = data.isSelected as boolean;
-  const onClick = data.onClick as () => void;
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`rounded-lg border-2 bg-background px-5 py-4 text-left shadow-sm transition-all ${
+      className={`nopan nodrag rounded-lg border-2 bg-background px-5 py-4 text-left shadow-sm transition-all ${
         isSelected
           ? "border-accent ring-2 ring-accent/20"
           : "border-border hover:border-muted-foreground/30"
       }`}
     >
-      <Handle type="target" position={Position.Left} className="opacity-0" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="pointer-events-none opacity-0"
+      />
       <span className="block text-sm font-semibold text-foreground">
         {data.label as string}
       </span>
@@ -111,18 +158,11 @@ export function CareerPathMap({
   pathMapData,
   selectedRole,
   onSelectRole,
+  className,
 }: CareerPathMapProps) {
   const { nodes, edges } = useMemo(() => {
     const builtNodes: Node[] = [];
     const builtEdges: Edge[] = [];
-
-    const currentNode: Node = {
-      id: "current",
-      type: "currentRole",
-      position: { x: 0, y: 200 },
-      data: { label: currentRole },
-    };
-    builtNodes.push(currentNode);
 
     const allSkills = new Map<string, BridgeSkill>();
     pathMapData.forEach((role) => {
@@ -134,15 +174,46 @@ export function CareerPathMap({
     });
 
     const skillArray = Array.from(allSkills.entries());
-    const skillStartY = 200 - ((skillArray.length - 1) * 60) / 2;
 
+    const SKILL_GAP_Y = 55;
+    const ROLE_GAP_Y = 160;
+    const CURRENT_ROLE_EST_HEIGHT = 65;
+    const SKILL_NODE_HEIGHT = 32;
+    const TARGET_ROLE_EST_HEIGHT = 110;
+
+    const skillColumnHeight = Math.max(
+      0,
+      (skillArray.length - 1) * SKILL_GAP_Y + SKILL_NODE_HEIGHT,
+    );
+    const roleColumnHeight = Math.max(
+      0,
+      (pathMapData.length - 1) * ROLE_GAP_Y + TARGET_ROLE_EST_HEIGHT,
+    );
+    const totalHeight = Math.max(
+      skillColumnHeight,
+      roleColumnHeight,
+      CURRENT_ROLE_EST_HEIGHT,
+    );
+
+    const COL_SKILL = 380;
+    const COL_ROLE = 720;
+
+    const currentY = totalHeight / 2 - CURRENT_ROLE_EST_HEIGHT / 2;
+    builtNodes.push({
+      id: "current",
+      type: "currentRole",
+      position: { x: 0, y: currentY },
+      data: { label: currentRole },
+    });
+
+    const skillStartY = totalHeight / 2 - skillColumnHeight / 2;
     skillArray.forEach(([skill, bs], i) => {
       const nodeId = `skill-${skill}`;
       builtNodes.push({
         id: nodeId,
         type: "bridgeSkill",
-        position: { x: 300, y: skillStartY + i * 60 },
-        data: { label: skill, level: bs.level },
+        position: { x: COL_SKILL, y: skillStartY + i * SKILL_GAP_Y },
+        data: { label: skill, level: bs.level, reasoning: bs.reasoning },
       });
       builtEdges.push({
         id: `current-${nodeId}`,
@@ -153,21 +224,19 @@ export function CareerPathMap({
       });
     });
 
-    const roleStartY = 200 - ((pathMapData.length - 1) * 140) / 2;
-
+    const roleStartY = totalHeight / 2 - roleColumnHeight / 2;
     pathMapData.forEach((role, i) => {
       const roleId = `role-${i}`;
       builtNodes.push({
         id: roleId,
         type: "targetRole",
-        position: { x: 600, y: roleStartY + i * 140 },
+        position: { x: COL_ROLE, y: roleStartY + i * ROLE_GAP_Y },
         data: {
           label: role.targetRole,
           fitScore: role.fitScore,
           salaryRange: role.salaryRange,
           timelineEstimate: role.timelineEstimate,
           isSelected: selectedRole === role.targetRole,
-          onClick: () => onSelectRole(role.targetRole),
         },
       });
 
@@ -186,23 +255,50 @@ export function CareerPathMap({
     return { nodes: builtNodes, edges: builtEdges };
   }, [currentRole, pathMapData, selectedRole, onSelectRole]);
 
-  const onInit = useCallback((instance: { fitView: () => void }) => {
-    setTimeout(() => instance.fitView(), 50);
-  }, []);
+  const fitViewOptions = useMemo(() => ({ padding: 0.15 }), []);
+
+  const onInit = useCallback(
+    (instance: { fitView: (opts?: { padding?: number }) => void }) => {
+      setTimeout(() => instance.fitView(fitViewOptions), 50);
+    },
+    [fitViewOptions],
+  );
+
+  const onNodeClick = useCallback(
+    (_event: MouseEvent, node: Node) => {
+      if (node.type !== "targetRole") return;
+      const label = node.data.label;
+      if (typeof label === "string") {
+        onSelectRole(label);
+      }
+    },
+    [onSelectRole],
+  );
 
   return (
-    <div className="h-[450px] w-full rounded-lg border border-border bg-background">
+    <div
+      className={cn(
+        "h-[min(620px,65vh)] min-h-[480px] w-full rounded-lg border border-border bg-background",
+        className,
+      )}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onInit={onInit}
+        onNodeClick={onNodeClick}
         fitView
+        fitViewOptions={fitViewOptions}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        panOnScroll
+        panOnDrag={false}
+        panOnScroll={false}
         zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        preventScrolling={false}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />

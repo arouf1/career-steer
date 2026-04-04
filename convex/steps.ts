@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { OPENROUTER_MODELS } from "../lib/ai/openrouter-models";
 import { mutation, internalMutation, query, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
@@ -216,6 +217,10 @@ export const generateStepOutput = action({
     if (!diagnostic || !diagnostic.analysis)
       throw new Error("Diagnostic analysis not found");
 
+    const jobSearch = await ctx.runQuery(api.jobSearches.getLatest, {
+      journeyId: step.journeyId,
+    });
+
     await ctx.runMutation(internal.steps.setGenerationStatus, {
       stepId: args.stepId,
       generationStatus: "generating",
@@ -224,9 +229,11 @@ export const generateStepOutput = action({
     const { buildStepPrompt } = await import("../lib/ai/prompts");
     const {
       cvRewriteOutputSchema,
-      gapAnalysisOutputSchema,
+      gapAnalysisLlmSchema,
       interviewPrepOutputSchema,
+      evidenceCaptureOutputSchema,
     } = await import("../lib/ai/schemas");
+    const { enrichResources } = await import("../lib/ai/exa-resources");
 
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY!,
@@ -243,10 +250,11 @@ export const generateStepOutput = action({
       industry: user.profile.industry,
       strengths: diagnostic.analysis.topStrengths,
       blockers: diagnostic.analysis.keyBlockers,
+      jobPostings: jobSearch?.jobs,
     };
 
     const prompt = buildStepPrompt(promptContext);
-    const model = openrouter.chat("google/gemini-2.5-pro");
+    const model = openrouter.chat(OPENROUTER_MODELS.pro);
 
     try {
       let output: unknown;
@@ -254,8 +262,9 @@ export const generateStepOutput = action({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const structuredTypes: Record<string, any> = {
         cv_rewrite: cvRewriteOutputSchema,
-        gap_analysis: gapAnalysisOutputSchema,
+        gap_analysis: gapAnalysisLlmSchema,
         interview_prep: interviewPrepOutputSchema,
+        evidence_capture: evidenceCaptureOutputSchema,
       };
 
       const schema = structuredTypes[step.type];
@@ -263,6 +272,24 @@ export const generateStepOutput = action({
       if (schema) {
         const result = await generateObject({ model, schema, prompt });
         output = result.object;
+
+        if (step.type === "gap_analysis") {
+          const llmOutput = output as {
+            overallReadiness: number;
+            skills: unknown[];
+            quickWins: string[];
+            longerTermGaps: string[];
+            suggestedResources: {
+              skill: string;
+              searchQuery: string;
+              type: "course" | "book" | "project" | "community" | "other";
+            }[];
+          };
+          const enrichedResources = await enrichResources(
+            llmOutput.suggestedResources,
+          );
+          output = { ...llmOutput, suggestedResources: enrichedResources };
+        }
       } else {
         const result = await generateText({ model, prompt });
         output = { content: result.text };

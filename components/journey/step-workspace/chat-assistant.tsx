@@ -5,6 +5,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { MessageSquare, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatAssistantProps {
   systemPrompt: string;
@@ -93,11 +95,25 @@ export function ChatAssistant({ systemPrompt }: ChatAssistantProps) {
                   : "bg-muted text-foreground"
               }`}
             >
-              {message.parts
-                .filter((p): p is Extract<typeof p, { type: "text" }> => p.type === "text")
-                .map((p, i) => (
-                  <span key={i}>{p.text}</span>
-                ))}
+              {message.role === "user"
+                ? message.parts
+                    .filter(
+                      (p): p is Extract<typeof p, { type: "text" }> =>
+                        p.type === "text",
+                    )
+                    .map((p, i) => <span key={i}>{p.text}</span>)
+                : message.parts
+                    .filter(
+                      (p): p is Extract<typeof p, { type: "text" }> =>
+                        p.type === "text",
+                    )
+                    .map((p, i) => (
+                      <div key={i} className="chat-markdown">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {p.text}
+                        </ReactMarkdown>
+                      </div>
+                    ))}
             </div>
           </div>
         ))}

@@ -1,10 +1,22 @@
 "use client";
 
-import type { GapAnalysisOutput } from "@/lib/ai/schemas";
+import { useMemo } from "react";
+import { Globe } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import type { GapAnalysisOutput, EnrichedResource } from "@/lib/ai/schemas";
 
 interface GapAnalysisOutputProps {
   output: GapAnalysisOutput;
 }
+
+const TAB_LABELS: Record<string, string> = {
+  course: "Courses",
+  book: "Books",
+  article: "Articles",
+  project: "Projects",
+  community: "Communities",
+  other: "Other",
+};
 
 const levelColours: Record<string, string> = {
   none: "bg-danger/10 text-danger",
@@ -131,28 +143,89 @@ export function GapAnalysisOutputDisplay({ output }: GapAnalysisOutputProps) {
       )}
 
       {output.suggestedResources.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold">Suggested Resources</h3>
-          <div className="mt-2 space-y-2">
-            {output.suggestedResources.map((res, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-3 rounded-lg border border-border p-3"
-              >
-                <span className="rounded bg-accent/10 px-2 py-0.5 text-xs font-medium capitalize text-accent">
-                  {res.type}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{res.resource}</p>
-                  <p className="text-xs text-muted-foreground">
-                    For: {res.skill}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ResourceTabs resources={output.suggestedResources} />
       )}
+    </div>
+  );
+}
+
+function ResourceTabs({ resources }: { resources: EnrichedResource[] }) {
+  const grouped = useMemo(() => {
+    const map: Record<string, EnrichedResource[]> = {};
+    for (const res of resources) {
+      const key = res.type;
+      if (!map[key]) map[key] = [];
+      map[key].push(res);
+    }
+    return map;
+  }, [resources]);
+
+  const categories = Object.keys(grouped);
+  if (categories.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold">Suggested Resources</h3>
+      <Tabs defaultValue={categories[0]} className="mt-3">
+        <TabsList>
+          {categories.map((cat) => (
+            <TabsTrigger key={cat} value={cat}>
+              {TAB_LABELS[cat] ?? cat}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {categories.map((cat) => (
+          <TabsContent key={cat} value={cat}>
+            <div className="mt-2 space-y-2">
+              {grouped[cat].map((res, i) => (
+                <ResourceCard key={i} resource={res} />
+              ))}
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+}
+
+function ResourceCard({ resource }: { resource: EnrichedResource }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+        {resource.favicon ? (
+          <img
+            src={resource.favicon}
+            alt=""
+            width={20}
+            height={20}
+            className="rounded-sm"
+          />
+        ) : (
+          <Globe className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      <div className="min-w-0">
+        {resource.url ? (
+          <a
+            href={resource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-accent underline-offset-2 hover:underline"
+          >
+            {resource.title}
+          </a>
+        ) : (
+          <p className="text-sm font-medium">{resource.title}</p>
+        )}
+        {resource.description && (
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+            {resource.description}
+          </p>
+        )}
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          For: {resource.skill}
+        </p>
+      </div>
     </div>
   );
 }

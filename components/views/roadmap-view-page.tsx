@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { RoadmapView } from "@/components/journey/roadmap-view";
-import { Loader2, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export function RoadmapViewPage({
@@ -25,7 +25,14 @@ export function RoadmapViewPage({
   });
 
   const generateRoadmap = useAction(api.roadmaps.generateRoadmap);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const hasTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (roadmap !== undefined && !roadmap && journey && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      generateRoadmap({ journeyId });
+    }
+  }, [roadmap, journey, journeyId, generateRoadmap]);
 
   if (journey === undefined || roadmap === undefined) {
     return (
@@ -43,45 +50,17 @@ export function RoadmapViewPage({
     );
   }
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    try {
-      await generateRoadmap({ journeyId });
-    } catch {
-      setIsGenerating(false);
-    }
-  };
-
   if (!roadmap) {
     return (
       <div className="mx-auto max-w-2xl py-16 text-center">
-        <Sparkles className="mx-auto h-12 w-12 text-accent" />
+        <Loader2 className="mx-auto h-10 w-10 animate-spin text-accent" />
         <h1 className="mt-4 text-2xl font-bold tracking-tight">
-          Generate your roadmap
+          Generating your roadmap
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Career Steer will create a personalised week-by-week plan based on
+          Career Steer is creating a personalised week-by-week plan based on
           your diagnostic results and career goals.
         </p>
-        <Button
-          className="mt-6"
-          variant="accent"
-          size="lg"
-          onClick={handleGenerate}
-          disabled={isGenerating}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating your roadmap…
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Generate roadmap
-            </>
-          )}
-        </Button>
       </div>
     );
   }
