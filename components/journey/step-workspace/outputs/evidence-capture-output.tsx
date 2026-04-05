@@ -320,11 +320,11 @@ export function EvidenceCaptureOutputDisplay({
   }
 
   const completedCount = output.tasks.filter(
-    (_, i) => (entryMap.get(i)?.content ?? "").trim().length > 0,
+    (_, i) => entryMap.get(i)?.grade != null,
   ).length;
 
   const firstIncomplete = output.tasks.findIndex(
-    (_, i) => (entryMap.get(i)?.content ?? "").trim().length === 0,
+    (_, i) => entryMap.get(i)?.grade == null,
   );
   const defaultTab = firstIncomplete === -1 ? "0" : String(firstIncomplete);
 
@@ -346,11 +346,10 @@ export function EvidenceCaptureOutputDisplay({
       <Tabs defaultValue={defaultTab}>
         <TabsList className="w-full flex-wrap justify-start" variant="line">
           {output.tasks.map((task, i) => {
-            const hasContent = (entryMap.get(i)?.content ?? "").trim().length > 0;
             const grade = entryMap.get(i)?.grade ?? null;
             return (
               <TabsTrigger key={i} value={String(i)} className="gap-1.5">
-                {hasContent ? (
+                {grade ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 ) : (
                   <Circle className="h-3.5 w-3.5 text-muted-foreground" />
