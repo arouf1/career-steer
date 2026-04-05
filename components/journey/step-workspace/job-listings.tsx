@@ -273,8 +273,31 @@ function JobDetail({ job }: { job: JobResult }) {
     (job.highlights?.qualifications?.length ?? 0) > 0 ||
     (job.highlights?.responsibilities?.length ?? 0) > 0;
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScroll, setCanScroll] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const check = () => {
+      const hasMore = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
+      setCanScroll(hasMore);
+    };
+
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", check);
+      ro.disconnect();
+    };
+  }, [job]);
+
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex gap-3">
         {job.thumbnail ? (
           <img
@@ -321,7 +344,8 @@ function JobDetail({ job }: { job: JobResult }) {
         </div>
       </div>
 
-      <div className="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
+      <div className="relative mt-4">
+      <div ref={scrollRef} className="job-scroll max-h-64 space-y-2 overflow-y-auto">
         {hasHighlights ? (
           <>
             {job.highlights!.qualifications &&
@@ -330,7 +354,7 @@ function JobDetail({ job }: { job: JobResult }) {
                   <p className="text-xs font-semibold text-foreground">
                     Qualifications
                   </p>
-                  <ul className="mt-1 list-inside list-disc space-y-1 text-xs leading-relaxed text-muted-foreground">
+                  <ul className="mt-1 list-inside list-disc space-y-1 text-xs leading-relaxed text-foreground">
                     {job.highlights!.qualifications.map((q, i) => (
                       <li key={i}>{q}</li>
                     ))}
@@ -343,7 +367,7 @@ function JobDetail({ job }: { job: JobResult }) {
                   <p className="text-xs font-semibold text-foreground">
                     Responsibilities
                   </p>
-                  <ul className="mt-1 list-inside list-disc space-y-1 text-xs leading-relaxed text-muted-foreground">
+                  <ul className="mt-1 list-inside list-disc space-y-1 text-xs leading-relaxed text-foreground">
                     {job.highlights!.responsibilities.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
@@ -355,12 +379,16 @@ function JobDetail({ job }: { job: JobResult }) {
           paragraphs.map((p, i) => (
             <p
               key={i}
-              className="text-xs leading-relaxed text-muted-foreground"
+              className="text-sm leading-relaxed text-foreground"
             >
               {p}
             </p>
           ))
         )}
+      </div>
+      {canScroll && (
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 rounded-b-lg bg-gradient-to-t from-card to-transparent" />
+      )}
       </div>
 
       {/* {job.applyLink && (

@@ -159,7 +159,7 @@ export function StepWorkspace({
   const showOutput = step.output != null;
 
   return (
-    <div className="mx-auto max-w-5xl pb-20">
+    <div className="mx-auto max-w-6xl pb-20">
       <div className="mb-6 flex items-center gap-3">
         <Link href={`/journey/${journeyId}/roadmap`}>
           <Button variant="ghost" size="sm">
