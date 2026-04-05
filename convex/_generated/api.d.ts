@@ -9,6 +9,7 @@
  */
 
 import type * as crons from "../crons.js";
+import type * as dashboardCommentary from "../dashboardCommentary.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as jobInsights from "../jobInsights.js";
@@ -28,6 +29,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
+  dashboardCommentary: typeof dashboardCommentary;
   diagnostics: typeof diagnostics;
   http: typeof http;
   jobInsights: typeof jobInsights;

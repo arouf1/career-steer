@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  SpeechTextarea,
+  useSpeechTextarea,
+} from "@/components/ui/speech-textarea";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
 const BLOCKER_OPTIONS = [
@@ -31,6 +35,12 @@ export function CheckInForm({
 }: CheckInFormProps) {
   const [reflection, setReflection] = useState("");
   const [selectedBlockers, setSelectedBlockers] = useState<string[]>([]);
+
+  const { textareaRef, handleChange, speech } = useSpeechTextarea({
+    value: reflection,
+    setValue: setReflection,
+    onCommit: setReflection,
+  });
 
   const completionRate =
     stepsTotal > 0 ? Math.round((stepsCompleted / stepsTotal) * 100) : 0;
@@ -79,13 +89,24 @@ export function CheckInForm({
           How did this week go?{" "}
           <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
-        <textarea
+        <SpeechTextarea
+          textareaRef={textareaRef}
+          isRecording={speech.isRecording}
           id="reflection"
-          value={reflection}
-          onChange={(e) => setReflection(e.target.value)}
+          className="mt-2"
           placeholder="Share anything — wins, struggles, or what you learnt this week…"
           rows={4}
-          className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40"
+          value={reflection}
+          onChange={handleChange}
+          mic={{
+            isRecording: speech.isRecording,
+            isConnecting: speech.isConnecting,
+            isSupported: speech.isSupported,
+            error: speech.error,
+            liveTranscript: speech.liveTranscript,
+            onStart: speech.startRecording,
+            onStop: speech.stopRecording,
+          }}
         />
       </div>
 

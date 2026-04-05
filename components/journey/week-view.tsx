@@ -22,7 +22,8 @@ interface WeekViewProps {
 
 export function WeekView({ weekNumber, steps, journeyId }: WeekViewProps) {
   const completedCount = steps.filter(
-    (s) => s.status === "completed",
+    (s) =>
+      s.status === "completed" || s.status === "skipped",
   ).length;
 
   return (

@@ -11,24 +11,37 @@ import type {
   EnrichedResource,
   EntryGrade,
 } from "@/lib/ai/schemas";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  SpeechTextarea,
+  useSpeechTextarea,
+} from "@/components/ui/speech-textarea";
+import { GradeBadge, GradeFeedback } from "@/components/journey/grade-feedback-card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Globe,
   CheckCircle2,
   Circle,
   Loader2,
   Sparkles,
-  TrendingUp,
-  Lightbulb,
   Gauge,
   Briefcase,
   ClipboardList,
+  Book,
+  GraduationCap,
+  Newspaper,
+  FolderKanban,
+  Users,
+  LayoutGrid,
+  type LucideIcon,
 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  AnimatedSwitch,
-  type SwitchOption,
-} from "@/components/ui/animated-switch";
+import { cn } from "@/lib/utils";
+
+/** Shared pill tab styling (section switcher + per-task tabs) */
+const GAP_PILL_TAB_LIST_CLASS =
+  "flex w-full flex-col items-stretch gap-2 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-1 sm:items-center sm:justify-start";
+
+const GAP_PILL_TAB_TRIGGER_CLASS =
+  "h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal text-center data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:!shadow-none data-[state=active]:text-card-foreground dark:data-[state=active]:bg-card dark:data-[state=active]:text-card-foreground sm:h-[calc(100%-1px)] sm:w-auto sm:flex-1 sm:justify-center sm:whitespace-nowrap";
 
 const SAVE_DEBOUNCE_MS = 800;
 const GRADE_DEBOUNCE_MS = 2000;
@@ -45,6 +58,22 @@ const TAB_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+const RESOURCE_TYPE_ICONS: Record<string, LucideIcon> = {
+  course: GraduationCap,
+  book: Book,
+  article: Newspaper,
+  project: FolderKanban,
+  community: Users,
+  other: LayoutGrid,
+};
+
+const RESOURCE_VERTICAL_TAB_TRIGGER_CLASS =
+  "flex h-auto min-h-9 w-full items-center justify-start gap-2 px-2.5 py-2 text-left text-sm font-medium whitespace-normal text-foreground/80 data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:!shadow-none data-[state=active]:text-card-foreground dark:data-[state=active]:bg-card dark:data-[state=active]:text-card-foreground sm:px-3 data-[state=active]:[&_svg]:text-foreground";
+
+/** Same as TaskPanel (Guidance, Writing prompts, Your response) */
+const SECTION_HEADING_CLASS =
+  "text-sm font-semibold uppercase tracking-wide text-foreground";
+
 const levelColours: Record<string, string> = {
   none: "bg-danger/10 text-danger",
   beginner: "bg-warning/10 text-warning",
@@ -57,19 +86,6 @@ const priorityStyles: Record<string, string> = {
   high: "bg-danger/10 text-danger",
   medium: "bg-warning/10 text-warning",
   low: "bg-muted text-muted-foreground",
-};
-
-const GRADE_COLOURS: Record<string, string> = {
-  "A+": "bg-success/15 text-success border-success/30",
-  A: "bg-success/15 text-success border-success/30",
-  "A-": "bg-success/10 text-success border-success/20",
-  "B+": "bg-accent/15 text-accent border-accent/30",
-  B: "bg-accent/10 text-accent border-accent/20",
-  "B-": "bg-accent/10 text-accent border-accent/20",
-  "C+": "bg-warning/15 text-warning border-warning/30",
-  C: "bg-warning/10 text-warning border-warning/20",
-  D: "bg-danger/15 text-danger border-danger/30",
-  F: "bg-danger/15 text-danger border-danger/30",
 };
 
 interface GapAnalysisOutputProps {
@@ -91,54 +107,68 @@ export function GapAnalysisOutputDisplay({
     Array.isArray(output.tasks) && output.tasks.length > 0 && stepId && journeyId;
   const hasMarket = !!marketInsightsSlot;
 
-  const switchOptions = useMemo(() => {
-    const opts: SwitchOption<GapView>[] = [
-      { key: "readiness", label: "Readiness", icon: Gauge },
+  const sectionTabs = useMemo(() => {
+    const tabs: { value: GapView; label: string; icon: LucideIcon }[] = [
+      { value: "readiness", label: "Readiness", icon: Gauge },
     ];
     if (hasMarket) {
-      opts.push({ key: "market", label: "Market Insights", icon: Briefcase });
+      tabs.push({ value: "market", label: "Market Insights", icon: Briefcase });
     }
     if (hasTasks) {
-      opts.push({
-        key: "tasks",
+      tabs.push({
+        value: "tasks",
         label: "Evidence & Plans",
         icon: ClipboardList,
       });
     }
-    return opts;
+    return tabs;
   }, [hasMarket, hasTasks]);
 
-  const showSwitch = switchOptions.length > 1;
-  const [activeView, setActiveView] = useState<GapView>("readiness");
+  const showSectionTabs = sectionTabs.length > 1;
+
+  if (!showSectionTabs) {
+    return (
+      <div className="space-y-6">
+        <ReadinessView output={output} hasTasks={!!hasTasks} />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {showSwitch && (
-        <AnimatedSwitch
-          options={switchOptions}
-          activeOption={activeView}
-          onOptionChange={setActiveView}
-          size="sm"
-          layoutId="gap-analysis-switch"
-        />
-      )}
+    <Tabs defaultValue="readiness" className="gap-4">
+      <TabsList className={GAP_PILL_TAB_LIST_CLASS}>
+        {sectionTabs.map((tab) => (
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            className={GAP_PILL_TAB_TRIGGER_CLASS}
+          >
+            <tab.icon className="h-3.5 w-3.5 shrink-0" />
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-      {activeView === "readiness" && (
+      <TabsContent value="readiness">
         <ReadinessView output={output} hasTasks={!!hasTasks} />
+      </TabsContent>
+
+      {hasMarket && (
+        <TabsContent value="market">{marketInsightsSlot}</TabsContent>
       )}
 
-      {activeView === "market" && hasMarket && marketInsightsSlot}
-
-      {activeView === "tasks" && hasTasks && (
-        <InteractiveTasksSection
-          tasks={output.tasks!}
-          skills={output.skills}
-          stepId={stepId}
-          journeyId={journeyId}
-          targetRole={targetRole ?? "the target role"}
-        />
+      {hasTasks && (
+        <TabsContent value="tasks">
+          <InteractiveTasksSection
+            tasks={output.tasks!}
+            skills={output.skills}
+            stepId={stepId!}
+            journeyId={journeyId!}
+            targetRole={targetRole ?? "the target role"}
+          />
+        </TabsContent>
       )}
-    </div>
+    </Tabs>
   );
 }
 
@@ -159,7 +189,7 @@ function ReadinessView({
   }, [output.tasks]);
 
   return (
-    <>
+    <div className="space-y-6">
       <div className="flex items-center gap-4 rounded-xl border border-border p-5">
         <div className="relative h-16 w-16">
           <svg className="h-16 w-16 -rotate-90" viewBox="0 0 36 36">
@@ -246,12 +276,15 @@ function ReadinessView({
 
       {output.quickWins.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold">Quick Wins</h3>
-          <ul className="mt-2 space-y-2">
+          <h4 className={cn(SECTION_HEADING_CLASS, "mb-3")}>Quick wins</h4>
+          <ul className="space-y-1.5">
             {output.quickWins.map((win, i) => (
-              <li key={i} className="flex gap-2 text-sm">
+              <li
+                key={i}
+                className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
+              >
                 <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-success" />
-                <span className="text-muted-foreground">{win}</span>
+                <span>{win}</span>
               </li>
             ))}
           </ul>
@@ -260,12 +293,17 @@ function ReadinessView({
 
       {output.longerTermGaps.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold">Longer-term Gaps</h3>
-          <ul className="mt-2 space-y-2">
+          <h4 className={cn(SECTION_HEADING_CLASS, "mb-3")}>
+            Longer-term gaps
+          </h4>
+          <ul className="space-y-1.5">
             {output.longerTermGaps.map((gap, i) => (
-              <li key={i} className="flex gap-2 text-sm">
+              <li
+                key={i}
+                className="flex gap-2 text-sm leading-relaxed text-muted-foreground"
+              >
                 <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-warning" />
-                <span className="text-muted-foreground">{gap}</span>
+                <span>{gap}</span>
               </li>
             ))}
           </ul>
@@ -275,7 +313,7 @@ function ReadinessView({
       {output.suggestedResources.length > 0 && (
         <ResourceTabs resources={output.suggestedResources} />
       )}
-    </>
+    </div>
   );
 }
 
@@ -343,14 +381,18 @@ function InteractiveTasksSection({
         will be graded automatically.
       </p>
 
-      <Tabs defaultValue={defaultTab}>
-        <TabsList className="w-full flex-wrap justify-start" variant="line">
+      <Tabs defaultValue={defaultTab} className="gap-4">
+        <TabsList className={GAP_PILL_TAB_LIST_CLASS}>
           {tasks.map((task, i) => {
             const hasContent =
               (entryMap.get(i)?.content ?? "").trim().length > 0;
             const grade = entryMap.get(i)?.grade ?? null;
             return (
-              <TabsTrigger key={i} value={String(i)} className="gap-1.5">
+              <TabsTrigger
+                key={i}
+                value={String(i)}
+                className={GAP_PILL_TAB_TRIGGER_CLASS}
+              >
                 {hasContent ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 ) : (
@@ -412,9 +454,6 @@ function SkillTaskPanel({
     savedContent.length > 0 ? "saved" : "idle",
   );
   const [isGrading, setIsGrading] = useState(false);
-  const [gradedContent, setGradedContent] = useState(
-    savedGrade ? savedContent : "",
-  );
 
   const upsert = useMutation(api.stepEntries.upsert);
   const gradeEntry = useAction(api.stepEntries.gradeEntry);
@@ -428,9 +467,8 @@ function SkillTaskPanel({
   useEffect(() => {
     if (savedGrade) {
       setIsGrading(false);
-      setGradedContent(savedContent);
     }
-  }, [savedGrade, savedContent]);
+  }, [savedGrade]);
 
   useEffect(() => {
     return () => {
@@ -439,9 +477,8 @@ function SkillTaskPanel({
     };
   }, []);
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const content = e.target.value;
+  const handleContentChange = useCallback(
+    (content: string) => {
       setValue(content);
 
       if (content.trim().length === 0) {
@@ -462,7 +499,6 @@ function SkillTaskPanel({
       if (content.trim().length >= GRADE_MIN_LENGTH) {
         gradeTimerRef.current = setTimeout(async () => {
           setIsGrading(true);
-          setGradedContent(content);
           try {
             await gradeEntry({
               stepId,
@@ -482,14 +518,23 @@ function SkillTaskPanel({
     [upsert, gradeEntry, stepId, journeyId, taskIndex, task.title, task.prompts, targetRole],
   );
 
-  const gradeIsStale = savedGrade && value !== gradedContent;
-  const showGrade = savedGrade && !gradeIsStale;
-  const isRegrading = showGrade && isGrading;
+  const { textareaRef, handleChange, speech } = useSpeechTextarea({
+    value,
+    setValue,
+    onCommit: handleContentChange,
+  });
+
+  /** Persisted grade stays visible while editing; overlay only during regrade. */
+  const showGrade = savedGrade != null;
+  const isRegrading = savedGrade != null && isGrading;
 
   const promptPlaceholder = task.prompts.map((p) => `${p}\n`).join("\n");
 
+  const sectionHeading =
+    "text-sm font-semibold uppercase tracking-wide text-foreground";
+
   return (
-    <div className="space-y-4 pt-1">
+    <div className="space-y-6 pt-1">
       <h3 className="mt-6 text-center text-base font-semibold">{task.title}</h3>
 
       {skill && (
@@ -520,19 +565,15 @@ function SkillTaskPanel({
       )}
 
       <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Guidance
-        </h4>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        <h4 className={cn(sectionHeading, "mb-3")}>Guidance</h4>
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {task.guidance}
         </p>
       </div>
 
       <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Writing prompts
-        </h4>
-        <ul className="mt-1 space-y-1">
+        <h4 className={cn(sectionHeading, "mb-3")}>Writing prompts</h4>
+        <ul className="space-y-1.5">
           {task.prompts.map((prompt, i) => (
             <li
               key={i}
@@ -546,10 +587,8 @@ function SkillTaskPanel({
       </div>
 
       <div>
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your response
-          </h4>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h4 className={sectionHeading}>Your response</h4>
           <div className="flex items-center gap-3">
             {isGrading && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -571,32 +610,43 @@ function SkillTaskPanel({
             )}
           </div>
         </div>
-        <Textarea
-          className="mt-1.5 min-h-32"
+        <SpeechTextarea
+          textareaRef={textareaRef}
+          isRecording={speech.isRecording}
+          className="mt-1.5 min-h-48"
           placeholder={promptPlaceholder}
           value={value}
           onChange={handleChange}
+          characterCount={
+            <span
+              className={
+                value.length > 0 && value.length < GRADE_MIN_LENGTH
+                  ? "text-warning"
+                  : "text-muted-foreground"
+              }
+            >
+              {value.length}
+              {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
+                <span> / {GRADE_MIN_LENGTH} min for grading</span>
+              )}
+            </span>
+          }
+          mic={{
+            isRecording: speech.isRecording,
+            isConnecting: speech.isConnecting,
+            isSupported: speech.isSupported,
+            error: speech.error,
+            liveTranscript: speech.liveTranscript,
+            onStart: speech.startRecording,
+            onStop: speech.stopRecording,
+          }}
         />
-        <div className="mt-1 flex justify-end">
-          <span
-            className={`text-xs ${
-              value.length > 0 && value.length < GRADE_MIN_LENGTH
-                ? "text-warning"
-                : "text-muted-foreground"
-            }`}
-          >
-            {value.length}
-            {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
-              <span> / {GRADE_MIN_LENGTH} min for grading</span>
-            )}
-          </span>
-        </div>
       </div>
 
       {showGrade && (
         <div className="relative">
           {isRegrading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-background/60 backdrop-blur-[1px]">
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 animate-pulse" />
                 Regrading…
@@ -607,73 +657,10 @@ function SkillTaskPanel({
         </div>
       )}
 
-      {isGrading && !showGrade && (
+      {isGrading && !savedGrade && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 animate-pulse" />
           Analysing your response…
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Grading UI                                                         */
-/* ------------------------------------------------------------------ */
-
-function GradeBadge({ letter }: { letter: string }) {
-  const colours =
-    GRADE_COLOURS[letter] ?? "bg-muted text-muted-foreground border-border";
-  return (
-    <span
-      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold ${colours}`}
-    >
-      {letter}
-    </span>
-  );
-}
-
-function GradeFeedback({ grade }: { grade: EntryGrade }) {
-  return (
-    <div className="mt-3 space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-      <div className="flex items-center gap-2">
-        <GradeBadge letter={grade.letter} />
-        <p className="text-sm text-muted-foreground">{grade.summary}</p>
-      </div>
-
-      {grade.strengths.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1.5">
-            <TrendingUp className="h-3 w-3 text-success" />
-            <h5 className="text-xs font-semibold text-success">Strengths</h5>
-          </div>
-          <ul className="mt-1 space-y-0.5">
-            {grade.strengths.map((s, i) => (
-              <li key={i} className="flex gap-2 text-xs text-muted-foreground">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-success" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {grade.improvements.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1.5">
-            <Lightbulb className="h-3 w-3 text-warning" />
-            <h5 className="text-xs font-semibold text-warning">
-              Tips to improve
-            </h5>
-          </div>
-          <ul className="mt-1 space-y-0.5">
-            {grade.improvements.map((tip, i) => (
-              <li key={i} className="flex gap-2 text-xs text-muted-foreground">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-warning" />
-                {tip}
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>
@@ -700,18 +687,30 @@ function ResourceTabs({ resources }: { resources: EnrichedResource[] }) {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold">Suggested Resources</h3>
-      <Tabs defaultValue={categories[0]} className="mt-3">
-        <TabsList>
-          {categories.map((cat) => (
-            <TabsTrigger key={cat} value={cat}>
-              {TAB_LABELS[cat] ?? cat}
-            </TabsTrigger>
-          ))}
+      <h4 className={cn(SECTION_HEADING_CLASS, "mb-3")}>Suggested resources</h4>
+      <Tabs
+        defaultValue={categories[0]}
+        orientation="vertical"
+        className="flex w-full flex-col gap-4 sm:flex-row sm:gap-6 sm:items-start"
+      >
+        <TabsList className="flex h-auto w-full shrink-0 flex-col items-stretch gap-1 rounded-lg bg-muted p-1 sm:w-auto sm:min-w-[12rem]">
+          {categories.map((cat) => {
+            const Icon = RESOURCE_TYPE_ICONS[cat] ?? LayoutGrid;
+            return (
+              <TabsTrigger
+                key={cat}
+                value={cat}
+                className={RESOURCE_VERTICAL_TAB_TRIGGER_CLASS}
+              >
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {TAB_LABELS[cat] ?? cat}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
         {categories.map((cat) => (
-          <TabsContent key={cat} value={cat}>
-            <div className="mt-2 space-y-2">
+          <TabsContent key={cat} value={cat} className="min-w-0 flex-1">
+            <div className="space-y-2">
               {grouped[cat].map((res, i) => (
                 <ResourceCard key={i} resource={res} />
               ))}

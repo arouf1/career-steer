@@ -32,6 +32,10 @@ import {
 import Link from "next/link";
 import type { LocationValue } from "@/lib/location";
 import type { EvidenceCaptureOutput, GapAnalysisOutput, JobInsights } from "@/lib/ai/schemas";
+import {
+  getStepTasksIncompleteReason,
+  stepOutputHasTasks,
+} from "@/lib/step-tasks";
 
 const JOB_LISTING_STEP_TYPES: ReadonlySet<StepType> = new Set([
   "gap_analysis",
@@ -87,10 +91,25 @@ export function StepWorkspace({
   const isEvidenceCapture = step.type === "evidence_capture";
   const isGapAnalysis = step.type === "gap_analysis";
   const needsEntries = isEvidenceCapture || isGapAnalysis;
+  const outputHasTasks = useMemo(
+    () => stepOutputHasTasks(step.output),
+    [step.output],
+  );
   const stepEntries = useQuery(
     api.stepEntries.getByStep,
-    needsEntries ? { stepId: step._id } : "skip",
+    needsEntries || outputHasTasks ? { stepId: step._id } : "skip",
   );
+
+  const markCompleteBlockedReason = useMemo(() => {
+    if (!outputHasTasks) return null;
+    if (stepEntries === undefined) return "Loading task progress…";
+    return getStepTasksIncompleteReason(
+      { type: step.type, output: step.output },
+      stepEntries,
+    );
+  }, [outputHasTasks, step.type, step.output, stepEntries]);
+
+  const canMarkComplete = markCompleteBlockedReason === null;
 
   const effectiveSystemPrompt = useMemo(() => {
     let prompt = chatSystemPrompt;
@@ -258,7 +277,12 @@ export function StepWorkspace({
         />
         {step.status !== "completed" &&
           step.status !== "locked" && (
-            <Button variant="secondary" onClick={handleMarkComplete}>
+            <Button
+              variant="secondary"
+              onClick={handleMarkComplete}
+              disabled={!canMarkComplete}
+              title={markCompleteBlockedReason ?? undefined}
+            >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Mark complete
             </Button>

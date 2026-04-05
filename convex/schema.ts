@@ -109,6 +109,10 @@ export default defineSchema({
     startedAt: v.number(),
     targetRole: v.union(v.string(), v.null()),
     targetTimeline: v.union(v.string(), v.null()),
+    /** Legacy: may exist on older documents; dashboard commentary is no longer persisted. */
+    dashboardCommentary: v.optional(v.string()),
+    dashboardCommentaryProgressSignature: v.optional(v.string()),
+    dashboardCommentaryGeneratedAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_status", ["userId", "status"])
@@ -245,7 +249,8 @@ export default defineSchema({
     ),
   })
     .index("by_stepId", ["stepId"])
-    .index("by_stepId_and_taskIndex", ["stepId", "taskIndex"]),
+    .index("by_stepId_and_taskIndex", ["stepId", "taskIndex"])
+    .index("by_journeyId", ["journeyId"]),
 
   jobInsights: defineTable({
     jobSearchId: v.id("jobSearches"),

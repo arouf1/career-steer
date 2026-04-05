@@ -1,16 +1,21 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useConvexAuth } from "convex/react";
 import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WeekView } from "@/components/journey/week-view";
 import { JOURNEY_LANES } from "@/lib/constants";
 import { ViewSkeleton } from "@/components/ui/view-skeleton";
+import { DashboardProgressCommentary } from "@/components/views/dashboard-progress-commentary";
 import Link from "next/link";
 import {
   ArrowRight,
+  CheckCircle2,
+  Circle,
   ClipboardList,
   Map,
   MessageCircle,
@@ -19,6 +24,14 @@ import {
 } from "lucide-react";
 
 export function DashboardView() {
+  const { isLoading: authLoading } = useConvexAuth();
+  if (authLoading) {
+    return <ViewSkeleton />;
+  }
+  return <DashboardViewWithData />;
+}
+
+function DashboardViewWithData() {
   const user = useSuspenseQuery(api.users.getCurrentUser);
   const journey = useSuspenseQuery(api.journeys.getActiveForUser);
   const allJourneys = useSuspenseQuery(api.journeys.getAllByUser);
@@ -76,6 +89,57 @@ function ActiveJourneyDashboard({
   const allSteps = useSuspenseQuery(api.steps.getAllByJourney, {
     journeyId,
   });
+
+  const stepsList: Doc<"steps">[] = useMemo(
+    () => allSteps ?? [],
+    [allSteps],
+  );
+  const weekNumbers = useMemo(() => {
+    const unique = new Set<number>();
+    for (const s of stepsList) unique.add(s.weekNumber);
+    return Array.from(unique).sort((a, b) => a - b);
+  }, [stepsList]);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+
+  const completedCount = useMemo(
+    () => stepsList.filter((s) => s.status === "completed").length,
+    [stepsList],
+  );
+  const totalCount = stepsList.length;
+  const progressPercent =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  const currentWeek = useMemo(() => {
+    const found = stepsList.find(
+      (s) => s.status === "available" || s.status === "in_progress",
+    );
+    return found?.weekNumber ?? 1;
+  }, [stepsList]);
+
+  const currentWeekSteps = useMemo(
+    () => stepsList.filter((s) => s.weekNumber === currentWeek),
+    [stepsList, currentWeek],
+  );
+
+  const viewWeek =
+    selectedWeek !== null && weekNumbers.includes(selectedWeek)
+      ? selectedWeek
+      : currentWeek;
+
+  const viewWeekSteps = useMemo(
+    () => stepsList.filter((s) => s.weekNumber === viewWeek),
+    [stepsList, viewWeek],
+  );
+
+  const weekCompletedSteps = useMemo(
+    () =>
+      currentWeekSteps.filter(
+        (s) => s.status === "completed" || s.status === "skipped",
+      ).length,
+    [currentWeekSteps],
+  );
+  const showCheckInPrompt =
+    weekCompletedSteps > 0 && weekCompletedSteps >= currentWeekSteps.length;
 
   const laneInfo = JOURNEY_LANES[journey.lane as keyof typeof JOURNEY_LANES];
 
@@ -151,30 +215,6 @@ function ActiveJourneyDashboard({
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const steps: any[] = allSteps ?? [];
-  const completedCount = steps.filter(
-    (s: any) => s.status === "completed",
-  ).length;
-  const totalCount = steps.length;
-  const progressPercent =
-    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-  const currentWeek =
-    steps.find(
-      (s: any) => s.status === "available" || s.status === "in_progress",
-    )?.weekNumber ?? 1;
-
-  const currentWeekSteps = steps.filter(
-    (s: any) => s.weekNumber === currentWeek,
-  );
-
-  const weekCompletedSteps = currentWeekSteps.filter(
-    (s: any) => s.status === "completed" || s.status === "skipped",
-  ).length;
-  const showCheckInPrompt =
-    weekCompletedSteps > 0 && weekCompletedSteps >= currentWeekSteps.length;
-
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex items-start justify-between">
@@ -208,6 +248,13 @@ function ActiveJourneyDashboard({
         </Link>
       </div>
 
+      <DashboardProgressCommentary
+        journeyId={journey._id}
+        completedCount={completedCount}
+        totalCount={totalCount}
+        progressPercent={progressPercent}
+      />
+
       {showCheckInPrompt && (
         <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-4">
           <div className="flex items-center gap-3">
@@ -230,27 +277,47 @@ function ActiveJourneyDashboard({
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border border-border p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Overall progress</span>
-          <span className="text-sm text-muted-foreground">
-            {completedCount}/{totalCount} steps ({progressPercent}%)
-          </span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-accent transition-all"
-            style={{ width: `${progressPercent}%` }}
+      <div className="mt-8">
+        {weekNumbers.length > 1 ? (
+          <Tabs
+            value={String(viewWeek)}
+            onValueChange={(v) => setSelectedWeek(Number(v))}
+            className="gap-4"
+          >
+            <TabsList className="flex w-full flex-col items-stretch gap-2 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-1 sm:items-center sm:justify-start">
+              {weekNumbers.map((w) => {
+                const weekSteps = stepsList.filter((s) => s.weekNumber === w);
+                const done = weekSteps.filter(
+                  (s) =>
+                    s.status === "completed" || s.status === "skipped",
+                ).length;
+                const allDone =
+                  weekSteps.length > 0 && done === weekSteps.length;
+                return (
+                  <TabsTrigger
+                    key={w}
+                    value={String(w)}
+                    className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal text-center data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:!shadow-none data-[state=active]:text-card-foreground dark:data-[state=active]:bg-card dark:data-[state=active]:text-card-foreground sm:h-[calc(100%-1px)] sm:w-auto sm:flex-1 sm:justify-center sm:whitespace-nowrap"
+                  >
+                    {allDone ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    Week {w}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        ) : null}
+        <div className={weekNumbers.length > 1 ? "mt-4" : undefined}>
+          <WeekView
+            weekNumber={viewWeek}
+            steps={viewWeekSteps}
+            journeyId={journey._id}
           />
         </div>
-      </div>
-
-      <div className="mt-8">
-        <WeekView
-          weekNumber={currentWeek}
-          steps={currentWeekSteps}
-          journeyId={journey._id}
-        />
       </div>
     </div>
   );

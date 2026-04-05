@@ -195,6 +195,20 @@ export const checkInResponseSchema = z.object({
 
 export type CheckInResponse = z.infer<typeof checkInResponseSchema>;
 
+export const dashboardCommentaryResponseSchema = z.object({
+  commentary: z
+    .string()
+    .min(1)
+    .max(1200)
+    .describe(
+      "2–4 short sentences acknowledging concrete progress on their roadmap. Holistic journey view, not a weekly check-in.",
+    ),
+});
+
+export type DashboardCommentaryResponse = z.infer<
+  typeof dashboardCommentaryResponseSchema
+>;
+
 export const salaryBandsSchema = z.object({
   currencySymbol: z.string().describe("Currency symbol for the location, e.g. £, $, €"),
   bands: z

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation } from "convex/react";
 import { useSuspenseQuery } from "@/hooks/use-suspense-query";
-import { useUser } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
 import { useState } from "react";
 import {
@@ -16,7 +15,6 @@ import {
   Play,
   Trash2,
   MoreHorizontal,
-  ChevronsUpDown,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -25,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -54,11 +51,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
 import type { Id } from "@/convex/_generated/dataModel";
 
 const navItems = [
@@ -201,65 +193,6 @@ function NavJourneys({
   );
 }
 
-function NavUser() {
-  const { user } = useUser();
-  const { isMobile } = useSidebar();
-
-  if (!user) return null;
-
-  const initials = [user.firstName, user.lastName]
-    .filter(Boolean)
-    .map((n) => n?.[0])
-    .join("")
-    .toUpperCase() || "U";
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.imageUrl} alt={user.fullName ?? ""} />
-                <AvatarFallback className="rounded-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {user.fullName ?? "User"}
-                </span>
-                <span className="truncate text-xs">
-                  {user.primaryEmailAddress?.emailAddress}
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings className="text-muted-foreground" />
-                  <span>Settings</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
 export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
@@ -278,9 +211,6 @@ export function AppSidebar({
             <NavJourneys onDeleteRequest={setDeleteTarget} />
           </Suspense>
         </SidebarContent>
-        <SidebarFooter>
-          <NavUser />
-        </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 

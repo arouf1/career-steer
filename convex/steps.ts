@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { OPENROUTER_MODELS } from "../lib/ai/openrouter-models";
+import { getStepTasksIncompleteReason } from "../lib/step-tasks";
 import { mutation, internalMutation, query, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
@@ -96,6 +97,21 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const step = await ctx.db.get(args.stepId);
     if (!step) throw new Error("Step not found");
+
+    if (args.status === "completed") {
+      const entries = await ctx.db
+        .query("stepEntries")
+        .withIndex("by_stepId", (q) => q.eq("stepId", args.stepId))
+        .collect();
+
+      const tasksReason = getStepTasksIncompleteReason(
+        { type: step.type, output: step.output },
+        entries,
+      );
+      if (tasksReason) {
+        throw new Error(tasksReason);
+      }
+    }
 
     await ctx.db.patch(args.stepId, { status: args.status });
 
@@ -272,7 +288,7 @@ export const generateStepOutput = action({
       if (schema) {
         const genOpts: Parameters<typeof generateObject>[0] = { model, schema, prompt };
         if (step.type === "gap_analysis") {
-          genOpts.maxTokens = 65536;
+          genOpts.maxOutputTokens = 65536;
         }
         const result = await generateObject(genOpts);
         output = result.object;

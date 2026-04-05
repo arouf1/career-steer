@@ -13,6 +13,28 @@ export const getByStep = query({
   },
 });
 
+export const getAllByJourney = query({
+  args: { journeyId: v.id("journeys") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return null;
+
+    const journey = await ctx.db.get(args.journeyId);
+    if (!journey || journey.userId !== user._id) return null;
+
+    return await ctx.db
+      .query("stepEntries")
+      .withIndex("by_journeyId", (q) => q.eq("journeyId", args.journeyId))
+      .collect();
+  },
+});
+
 export const upsert = mutation({
   args: {
     stepId: v.id("steps"),

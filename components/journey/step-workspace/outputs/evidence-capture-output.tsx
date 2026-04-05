@@ -6,91 +6,18 @@ import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { EvidenceCaptureOutput, EntryGrade } from "@/lib/ai/schemas";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  CheckCircle2,
-  Circle,
-  Loader2,
-  Sparkles,
-  TrendingUp,
-  Lightbulb,
-} from "lucide-react";
+  SpeechTextarea,
+  useSpeechTextarea,
+} from "@/components/ui/speech-textarea";
+import { GradeBadge, GradeFeedback } from "@/components/journey/grade-feedback-card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, Circle, Loader2, Sparkles } from "lucide-react";
 
 const SAVE_DEBOUNCE_MS = 800;
 const GRADE_DEBOUNCE_MS = 2000;
 const GRADE_MIN_LENGTH = 50;
-
-const GRADE_COLOURS: Record<string, string> = {
-  "A+": "bg-success/15 text-success border-success/30",
-  A: "bg-success/15 text-success border-success/30",
-  "A-": "bg-success/10 text-success border-success/20",
-  "B+": "bg-accent/15 text-accent border-accent/30",
-  B: "bg-accent/10 text-accent border-accent/20",
-  "B-": "bg-accent/10 text-accent border-accent/20",
-  "C+": "bg-warning/15 text-warning border-warning/30",
-  C: "bg-warning/10 text-warning border-warning/20",
-  D: "bg-danger/15 text-danger border-danger/30",
-  F: "bg-danger/15 text-danger border-danger/30",
-};
-
-function GradeBadge({ letter }: { letter: string }) {
-  const colours = GRADE_COLOURS[letter] ?? "bg-muted text-muted-foreground border-border";
-  return (
-    <span
-      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold ${colours}`}
-    >
-      {letter}
-    </span>
-  );
-}
-
-function GradeFeedback({ grade }: { grade: EntryGrade }) {
-  return (
-    <div className="mt-3 space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-      <div className="flex items-center gap-2">
-        <GradeBadge letter={grade.letter} />
-        <p className="text-sm text-muted-foreground">{grade.summary}</p>
-      </div>
-
-      {grade.strengths.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1.5">
-            <TrendingUp className="h-3 w-3 text-success" />
-            <h5 className="text-xs font-semibold text-success">Strengths</h5>
-          </div>
-          <ul className="mt-1 space-y-0.5">
-            {grade.strengths.map((s, i) => (
-              <li key={i} className="flex gap-2 text-xs text-muted-foreground">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-success" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {grade.improvements.length > 0 && (
-        <div>
-          <div className="flex items-center gap-1.5">
-            <Lightbulb className="h-3 w-3 text-warning" />
-            <h5 className="text-xs font-semibold text-warning">
-              Tips to improve
-            </h5>
-          </div>
-          <ul className="mt-1 space-y-0.5">
-            {grade.improvements.map((tip, i) => (
-              <li key={i} className="flex gap-2 text-xs text-muted-foreground">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-warning" />
-                {tip}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface TaskPanelProps {
   task: EvidenceCaptureOutput["tasks"][number];
@@ -116,9 +43,6 @@ function TaskPanel({
     savedContent.length > 0 ? "saved" : "idle",
   );
   const [isGrading, setIsGrading] = useState(false);
-  const [gradedContent, setGradedContent] = useState(
-    savedGrade ? savedContent : "",
-  );
 
   const upsert = useMutation(api.stepEntries.upsert);
   const gradeEntry = useAction(api.stepEntries.gradeEntry);
@@ -132,9 +56,8 @@ function TaskPanel({
   useEffect(() => {
     if (savedGrade) {
       setIsGrading(false);
-      setGradedContent(savedContent);
     }
-  }, [savedGrade, savedContent]);
+  }, [savedGrade]);
 
   useEffect(() => {
     return () => {
@@ -143,9 +66,8 @@ function TaskPanel({
     };
   }, []);
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const content = e.target.value;
+  const handleContentChange = useCallback(
+    (content: string) => {
       setValue(content);
 
       if (content.trim().length === 0) {
@@ -166,7 +88,6 @@ function TaskPanel({
       if (content.trim().length >= GRADE_MIN_LENGTH) {
         gradeTimerRef.current = setTimeout(async () => {
           setIsGrading(true);
-          setGradedContent(content);
           try {
             await gradeEntry({
               stepId,
@@ -185,30 +106,35 @@ function TaskPanel({
     [upsert, gradeEntry, stepId, journeyId, taskIndex, task.title, task.prompts, targetRole],
   );
 
-  const gradeIsStale = savedGrade && value !== gradedContent;
-  const showGrade = savedGrade && !gradeIsStale;
-  const isRegrading = showGrade && isGrading;
+  const { textareaRef, handleChange, speech } = useSpeechTextarea({
+    value,
+    setValue,
+    onCommit: handleContentChange,
+  });
+
+  /** Persisted grade stays visible while editing; overlay only during regrade. */
+  const showGrade = savedGrade != null;
+  const isRegrading = savedGrade != null && isGrading;
 
   const promptPlaceholder = task.prompts.map((p) => `${p}\n`).join("\n");
 
+  const sectionHeading =
+    "text-sm font-semibold uppercase tracking-wide text-foreground";
+
   return (
-    <div className="space-y-4 pt-1">
+    <div className="space-y-6 pt-1">
       <h3 className="mt-6 text-center text-base font-semibold">{task.title}</h3>
 
       <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Guidance
-        </h4>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        <h4 className={cn(sectionHeading, "mb-3")}>Guidance</h4>
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {task.guidance}
         </p>
       </div>
 
       <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Writing prompts
-        </h4>
-        <ul className="mt-1 space-y-1">
+        <h4 className={cn(sectionHeading, "mb-3")}>Writing prompts</h4>
+        <ul className="space-y-1.5">
           {task.prompts.map((prompt, i) => (
             <li
               key={i}
@@ -222,10 +148,8 @@ function TaskPanel({
       </div>
 
       <div>
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your response
-          </h4>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h4 className={sectionHeading}>Your response</h4>
           <div className="flex items-center gap-3">
             {isGrading && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -247,32 +171,43 @@ function TaskPanel({
             )}
           </div>
         </div>
-        <Textarea
-          className="mt-1.5 min-h-32"
+        <SpeechTextarea
+          textareaRef={textareaRef}
+          isRecording={speech.isRecording}
+          className="mt-1.5 min-h-48"
           placeholder={promptPlaceholder}
           value={value}
           onChange={handleChange}
+          characterCount={
+            <span
+              className={
+                value.length > 0 && value.length < GRADE_MIN_LENGTH
+                  ? "text-warning"
+                  : "text-muted-foreground"
+              }
+            >
+              {value.length}
+              {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
+                <span> / {GRADE_MIN_LENGTH} min for grading</span>
+              )}
+            </span>
+          }
+          mic={{
+            isRecording: speech.isRecording,
+            isConnecting: speech.isConnecting,
+            isSupported: speech.isSupported,
+            error: speech.error,
+            liveTranscript: speech.liveTranscript,
+            onStart: speech.startRecording,
+            onStop: speech.stopRecording,
+          }}
         />
-        <div className="mt-1 flex justify-end">
-          <span
-            className={`text-xs ${
-              value.length > 0 && value.length < GRADE_MIN_LENGTH
-                ? "text-warning"
-                : "text-muted-foreground"
-            }`}
-          >
-            {value.length}
-            {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
-              <span> / {GRADE_MIN_LENGTH} min for grading</span>
-            )}
-          </span>
-        </div>
       </div>
 
       {showGrade && (
         <div className="relative">
           {isRegrading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-background/60 backdrop-blur-[1px]">
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 animate-pulse" />
                 Regrading…
@@ -283,7 +218,7 @@ function TaskPanel({
         </div>
       )}
 
-      {isGrading && !showGrade && (
+      {isGrading && !savedGrade && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 animate-pulse" />
           Analysing your response…
@@ -343,12 +278,16 @@ export function EvidenceCaptureOutputDisplay({
         </span>
       </div>
 
-      <Tabs defaultValue={defaultTab}>
-        <TabsList className="w-full flex-wrap justify-start" variant="line">
+      <Tabs defaultValue={defaultTab} className="gap-4">
+        <TabsList className="flex w-full flex-col items-stretch gap-2 sm:inline-flex sm:flex-row sm:flex-wrap sm:gap-1 sm:items-center sm:justify-start">
           {output.tasks.map((task, i) => {
             const grade = entryMap.get(i)?.grade ?? null;
             return (
-              <TabsTrigger key={i} value={String(i)} className="gap-1.5">
+              <TabsTrigger
+                key={i}
+                value={String(i)}
+                className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal text-center data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:!shadow-none data-[state=active]:text-card-foreground dark:data-[state=active]:bg-card dark:data-[state=active]:text-card-foreground sm:h-[calc(100%-1px)] sm:w-auto sm:flex-1 sm:justify-center sm:whitespace-nowrap"
+              >
                 {grade ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 ) : (

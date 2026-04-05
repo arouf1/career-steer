@@ -539,3 +539,66 @@ RULES:
 - Keep the summary to 1-2 sentences.
 - Use British English throughout.`;
 }
+
+export function buildDashboardCommentaryPrompt(context: {
+  userName: string;
+  laneLabel: string;
+  targetRole: string | null;
+  roadmapOverview: string;
+  milestoneLines: string[];
+  stepLines: string[];
+  /** Graded written tasks (letter grades + short summaries from Career Steer). */
+  gradeLines: string[];
+  completedCount: number;
+  totalCount: number;
+}): string {
+  const target =
+    context.targetRole ?? "their stated career direction";
+
+  const stepsBlock =
+    context.stepLines.length > 0
+      ? context.stepLines.join("\n")
+      : "(No steps listed.)";
+
+  const milestonesBlock =
+    context.milestoneLines.length > 0
+      ? context.milestoneLines.join("\n")
+      : "(None.)";
+
+  const gradesBlock =
+    context.gradeLines.length > 0
+      ? context.gradeLines.join("\n")
+      : "(No graded written responses yet.)";
+
+  return `${BASE_PERSONA}
+
+You are writing a short personalised blurb for the user's **dashboard** — a bird's-eye view of how their roadmap is going so far. This is not their weekly check-in; do not mirror "well done on last week" language. Stay grounded in the facts below.
+
+USER: ${context.userName}
+LANE: ${context.laneLabel}
+TARGET: ${target}
+
+ROADMAP OVERVIEW:
+${context.roadmapOverview}
+
+WEEKLY MILESTONES (titles):
+${milestonesBlock}
+
+PROGRESS: ${context.completedCount} of ${context.totalCount} steps completed.
+
+STEPS (status and titles only — do not invent details):
+${stepsBlock}
+
+GRADED WRITTEN WORK (letter grades and one-line feedback summaries — use only where listed; do not invent grades):
+${gradesBlock}
+
+RULES:
+- Write exactly 2–4 sentences in British English.
+- Reference what they have actually completed or clearly started, using the step titles and statuses above. Do not claim they finished something unless its status is completed or skipped.
+- If graded work is listed above, you may briefly reflect on quality (e.g. strong A-range work vs room to deepen evidence). Tie it to the summaries provided — do not invent grades or feedback.
+- Be warm but direct — Career Steer tone. No medical, legal, or financial advice.
+- Do not repeat the roadmap overview verbatim; add a fresh angle (momentum, focus area, or sensible next emphasis).
+- If something important is still locked or not started, you may mention it lightly — do not shame.
+
+OUTPUT: only the commentary text in the structured field — no headings or bullet points.`;
+}
