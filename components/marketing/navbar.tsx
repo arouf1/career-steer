@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Show, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-sm">
       <nav className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          Career Steer
+        <Link href="/">
+          <Logo />
         </Link>
 
         <div className="flex items-center gap-6">

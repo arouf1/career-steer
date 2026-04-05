@@ -1,13 +1,15 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { Suspense } from "react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { WeekView } from "@/components/journey/week-view";
 import { JOURNEY_LANES } from "@/lib/constants";
+import { ViewSkeleton } from "@/components/ui/view-skeleton";
 import Link from "next/link";
 import {
-  Loader2,
   ArrowRight,
   ClipboardList,
   Map,
@@ -17,25 +19,9 @@ import {
 } from "lucide-react";
 
 export function DashboardView() {
-  const user = useQuery(api.users.getCurrentUser);
-  const journey = useQuery(api.journeys.getActiveForUser);
-  const roadmap = useQuery(
-    api.roadmaps.getByJourneyId,
-    journey ? { journeyId: journey._id } : "skip",
-  );
-  const allSteps = useQuery(
-    api.steps.getAllByJourney,
-    journey ? { journeyId: journey._id } : "skip",
-  );
-  const allJourneys = useQuery(api.journeys.getAllByUser);
-
-  if (user === undefined) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const user = useSuspenseQuery(api.users.getCurrentUser);
+  const journey = useSuspenseQuery(api.journeys.getActiveForUser);
+  const allJourneys = useSuspenseQuery(api.journeys.getAllByUser);
 
   if (!journey) {
     const pastJourneyCount = allJourneys?.length ?? 0;
@@ -59,13 +45,45 @@ export function DashboardView() {
     );
   }
 
+  return (
+    <Suspense fallback={<ViewSkeleton />}>
+      <ActiveJourneyDashboard
+        userName={user?.name}
+        journeyId={journey._id}
+        journey={journey}
+      />
+    </Suspense>
+  );
+}
+
+function ActiveJourneyDashboard({
+  userName,
+  journeyId,
+  journey,
+}: {
+  userName: string | undefined;
+  journeyId: Id<"journeys">;
+  journey: {
+    _id: Id<"journeys">;
+    lane: string;
+    targetRole: string | null;
+    status: string;
+  };
+}) {
+  const roadmap = useSuspenseQuery(api.roadmaps.getByJourneyId, {
+    journeyId,
+  });
+  const allSteps = useSuspenseQuery(api.steps.getAllByJourney, {
+    journeyId,
+  });
+
   const laneInfo = JOURNEY_LANES[journey.lane as keyof typeof JOURNEY_LANES];
 
   if (!roadmap) {
     return (
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back{user?.name ? `, ${user.name}` : ""}
+          Welcome back{userName ? `, ${userName}` : ""}
         </h1>
         <div className="mt-4 rounded-xl border border-border p-6">
           <div className="flex items-center gap-3">
@@ -80,7 +98,8 @@ export function DashboardView() {
           </p>
           {journey.targetRole && (
             <p className="mt-1 text-sm">
-              Target role: <span className="font-medium">{journey.targetRole}</span>
+              Target role:{" "}
+              <span className="font-medium">{journey.targetRole}</span>
             </p>
           )}
           <p className="mt-4 text-muted-foreground">
@@ -102,14 +121,12 @@ export function DashboardView() {
     return (
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back{user?.name ? `, ${user.name}` : ""}
+          Welcome back{userName ? `, ${userName}` : ""}
         </h1>
 
         <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-6 text-center">
           <Trophy className="mx-auto h-10 w-10 text-accent" />
-          <h2 className="mt-3 text-lg font-semibold">
-            Journey complete!
-          </h2>
+          <h2 className="mt-3 text-lg font-semibold">Journey complete!</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {journey.targetRole
               ? `You've finished your roadmap towards ${journey.targetRole}.`
@@ -136,7 +153,9 @@ export function DashboardView() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const steps: any[] = allSteps ?? [];
-  const completedCount = steps.filter((s: any) => s.status === "completed").length;
+  const completedCount = steps.filter(
+    (s: any) => s.status === "completed",
+  ).length;
   const totalCount = steps.length;
   const progressPercent =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -161,7 +180,7 @@ export function DashboardView() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Welcome back{user?.name ? `, ${user.name}` : ""}
+            Welcome back{userName ? `, ${userName}` : ""}
           </h1>
           <div className="mt-1 flex items-center gap-2">
             <div
@@ -173,7 +192,7 @@ export function DashboardView() {
             </span>
             {journey.targetRole && (
               <>
-                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">&middot;</span>
                 <span className="text-sm text-muted-foreground">
                   {journey.targetRole}
                 </span>

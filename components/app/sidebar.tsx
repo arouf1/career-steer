@@ -1,8 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
 import { useState } from "react";
@@ -16,6 +18,7 @@ import {
   MoreHorizontal,
   ChevronsUpDown,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { JOURNEY_LANES } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -98,11 +101,11 @@ function NavJourneys({
 }: {
   onDeleteRequest: (id: Id<"journeys">) => void;
 }) {
-  const journeys = useQuery(api.journeys.getAllByUser);
+  const journeys = useSuspenseQuery(api.journeys.getAllByUser);
   const resumeJourney = useMutation(api.journeys.resume);
   const { isMobile } = useSidebar();
 
-  if (!journeys || journeys.length === 0) return null;
+  if (journeys.length === 0) return null;
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -268,26 +271,12 @@ export function AppSidebar({
   return (
     <>
       <Sidebar collapsible="icon" {...props}>
-        <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Link href="/dashboard">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Route className="size-4" />
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Career Steer</span>
-                    <span className="truncate text-xs">Your next move</span>
-                  </div>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarHeader>
+        <SidebarHeader />
         <SidebarContent>
           <NavMain />
-          <NavJourneys onDeleteRequest={setDeleteTarget} />
+          <Suspense fallback={null}>
+            <NavJourneys onDeleteRequest={setDeleteTarget} />
+          </Suspense>
         </SidebarContent>
         <SidebarFooter>
           <NavUser />

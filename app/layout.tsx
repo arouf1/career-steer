@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Figtree, EB_Garamond } from "next/font/google";
 import { Providers } from "@/components/convex-provider";
 import "./globals.css";
+import "./fonts.css";
 
-const inter = Inter({
+const figtree = Figtree({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const ebGaramond = EB_Garamond({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${figtree.variable} ${ebGaramond.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -90,6 +90,27 @@ export type CvRewriteOutput = z.infer<typeof cvRewriteOutputSchema>;
 
 export const resourceTypeEnum = z.enum(["course", "book", "article", "project", "community", "other"]);
 
+export const gapAnalysisTaskSchema = z.object({
+  skillName: z.string().describe("Matches a skill name from the skills array"),
+  title: z
+    .string()
+    .describe("Short, descriptive title, e.g. 'Evidence & Plan: Data Visualisation'"),
+  guidance: z
+    .string()
+    .describe(
+      "Detailed guidance on what evidence to provide for current capability and what kind of action plan to write for closing the gap",
+    ),
+  prompts: z
+    .array(z.string())
+    .min(2)
+    .max(4)
+    .describe(
+      "Mix of evidence and planning prompts, e.g. 'Current Evidence: Describe a project where you applied this skill…' and 'Action Plan: What specific steps will you take to reach the required level?'",
+    ),
+});
+
+export type GapAnalysisTask = z.infer<typeof gapAnalysisTaskSchema>;
+
 export const gapAnalysisLlmSchema = z.object({
   overallReadiness: z.number().min(0).max(100),
   skills: z.array(
@@ -113,6 +134,13 @@ export const gapAnalysisLlmSchema = z.object({
       type: resourceTypeEnum,
     }),
   ),
+  tasks: z
+    .array(gapAnalysisTaskSchema)
+    .max(6)
+    .optional()
+    .describe(
+      "One interactive task per high/medium priority skill gap where currentLevel < requiredLevel, ordered by priority (high first). Generate 2-6 tasks.",
+    ),
 });
 
 export type GapAnalysisLlmOutput = z.infer<typeof gapAnalysisLlmSchema>;
@@ -141,6 +169,7 @@ export const gapAnalysisOutputSchema = z.object({
   quickWins: z.array(z.string()),
   longerTermGaps: z.array(z.string()),
   suggestedResources: z.array(enrichedResourceSchema),
+  tasks: z.array(gapAnalysisTaskSchema).optional(),
 });
 
 export type GapAnalysisOutput = z.infer<typeof gapAnalysisOutputSchema>;

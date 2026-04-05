@@ -42,3 +42,5 @@ next-env.d.ts
 
 # project assets (not for version control)
 *.pdf
+.aidesigner/*
+!.aidesigner/.gitkeep

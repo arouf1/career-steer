@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CompletionSummary } from "@/components/journey/completion-summary";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 
 export function CompleteView({
@@ -13,17 +13,9 @@ export function CompleteView({
 }: {
   journeyId: Id<"journeys">;
 }) {
-  const stats = useQuery(api.journeys.getCompletionStats, {
+  const stats = useSuspenseQuery(api.journeys.getCompletionStats, {
     journeyId,
   });
-
-  if (stats === undefined) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   if (!stats) {
     return (

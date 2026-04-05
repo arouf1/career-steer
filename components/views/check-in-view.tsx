@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useAction } from "convex/react";
+import { Suspense, useState } from "react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
+import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CheckInForm } from "@/components/journey/check-in-form";
 import { CheckInResult } from "@/components/journey/check-in-result";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { ViewSkeleton } from "@/components/ui/view-skeleton";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export function CheckInView({
@@ -15,69 +17,28 @@ export function CheckInView({
 }: {
   journeyId: Id<"journeys">;
 }) {
-  const allSteps = useQuery(api.steps.getAllByJourney, {
-    journeyId,
-  });
+  const allSteps = useSuspenseQuery(api.steps.getAllByJourney, { journeyId });
 
-  const currentWeek = allSteps
-    ? (() => {
-        const activeStep = allSteps.find(
-          (s: any) => s.status === "available" || s.status === "in_progress",
-        );
-        if (activeStep) return activeStep.weekNumber;
-        const maxWeek = Math.max(...allSteps.map((s: any) => s.weekNumber), 1);
-        return maxWeek;
-      })()
-    : null;
-
-  const existingLog = useQuery(
-    api.progressLogs.getByJourneyAndWeek,
-    currentWeek !== null
-      ? { journeyId, weekNumber: currentWeek }
-      : "skip",
-  );
-
-  const generateCheckIn = useAction(api.progressLogs.generateCheckIn);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [result, setResult] = useState<{
-    encouragement: string;
-    updatedRecommendations: string[];
-  } | null>(null);
-
-  if (allSteps === undefined || currentWeek === null) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+  const currentWeek = (() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const activeStep = allSteps.find(
+      (s: any) => s.status === "available" || s.status === "in_progress",
     );
-  }
+    if (activeStep) return activeStep.weekNumber as number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maxWeek = Math.max(...allSteps.map((s: any) => s.weekNumber), 1);
+    return maxWeek;
+  })();
 
-  const weekSteps = allSteps.filter((s: any) => s.weekNumber === currentWeek);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const weekSteps = allSteps.filter(
+    (s: any) => s.weekNumber === currentWeek,
+  );
   const stepsCompleted = weekSteps.filter(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (s: any) => s.status === "completed" || s.status === "skipped",
   ).length;
   const stepsTotal = weekSteps.length;
-
-  const showResult = result ?? existingLog;
-
-  async function handleSubmit(
-    reflection: string | null,
-    blockers: string | null,
-  ) {
-    setIsSubmitting(true);
-    try {
-      const response = await generateCheckIn({
-        journeyId,
-        weekNumber: currentWeek!,
-        userReflection: reflection,
-        blockers,
-      });
-      setResult(response as { encouragement: string; updatedRecommendations: string[] });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -99,21 +60,84 @@ export function CheckInView({
       </p>
 
       <div className="mt-8">
-        {showResult ? (
-          <CheckInResult
-            encouragement={showResult.encouragement}
-            recommendations={showResult.updatedRecommendations}
-          />
-        ) : (
-          <CheckInForm
-            weekNumber={currentWeek}
+        <Suspense fallback={<ViewSkeleton />}>
+          <CheckInContent
+            journeyId={journeyId}
+            currentWeek={currentWeek}
             stepsCompleted={stepsCompleted}
             stepsTotal={stepsTotal}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmit}
           />
-        )}
+        </Suspense>
       </div>
     </div>
+  );
+}
+
+function CheckInContent({
+  journeyId,
+  currentWeek,
+  stepsCompleted,
+  stepsTotal,
+}: {
+  journeyId: Id<"journeys">;
+  currentWeek: number;
+  stepsCompleted: number;
+  stepsTotal: number;
+}) {
+  const existingLog = useSuspenseQuery(api.progressLogs.getByJourneyAndWeek, {
+    journeyId,
+    weekNumber: currentWeek,
+  });
+
+  const generateCheckIn = useAction(api.progressLogs.generateCheckIn);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{
+    encouragement: string;
+    updatedRecommendations: string[];
+  } | null>(null);
+
+  const showResult = result ?? existingLog;
+
+  async function handleSubmit(
+    reflection: string | null,
+    blockers: string | null,
+  ) {
+    setIsSubmitting(true);
+    try {
+      const response = await generateCheckIn({
+        journeyId,
+        weekNumber: currentWeek,
+        userReflection: reflection,
+        blockers,
+      });
+      setResult(
+        response as {
+          encouragement: string;
+          updatedRecommendations: string[];
+        },
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (showResult) {
+    return (
+      <CheckInResult
+        encouragement={showResult.encouragement}
+        recommendations={showResult.updatedRecommendations}
+      />
+    );
+  }
+
+  return (
+    <CheckInForm
+      weekNumber={currentWeek}
+      stepsCompleted={stepsCompleted}
+      stepsTotal={stepsTotal}
+      isSubmitting={isSubmitting}
+      onSubmit={handleSubmit}
+    />
   );
 }

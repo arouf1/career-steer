@@ -270,7 +270,11 @@ export const generateStepOutput = action({
       const schema = structuredTypes[step.type];
 
       if (schema) {
-        const result = await generateObject({ model, schema, prompt });
+        const genOpts: Parameters<typeof generateObject>[0] = { model, schema, prompt };
+        if (step.type === "gap_analysis") {
+          genOpts.maxTokens = 65536;
+        }
+        const result = await generateObject(genOpts);
         output = result.object;
 
         if (step.type === "gap_analysis") {

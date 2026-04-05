@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { EvidenceCaptureOutput, EntryGrade } from "@/lib/ai/schemas";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ChevronDown,
   CheckCircle2,
   Circle,
   Loader2,
@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Lightbulb,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const SAVE_DEBOUNCE_MS = 800;
 const GRADE_DEBOUNCE_MS = 2000;
@@ -91,7 +92,7 @@ function GradeFeedback({ grade }: { grade: EntryGrade }) {
   );
 }
 
-interface TaskCardProps {
+interface TaskPanelProps {
   task: EvidenceCaptureOutput["tasks"][number];
   taskIndex: number;
   stepId: Id<"steps">;
@@ -101,7 +102,7 @@ interface TaskCardProps {
   targetRole: string;
 }
 
-function TaskCard({
+function TaskPanel({
   task,
   taskIndex,
   stepId,
@@ -109,8 +110,7 @@ function TaskCard({
   savedContent,
   savedGrade,
   targetRole,
-}: TaskCardProps) {
-  const [isOpen, setIsOpen] = useState(savedContent.length === 0);
+}: TaskPanelProps) {
   const [value, setValue] = useState(savedContent);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     savedContent.length > 0 ? "saved" : "idle",
@@ -132,8 +132,9 @@ function TaskCard({
   useEffect(() => {
     if (savedGrade) {
       setIsGrading(false);
+      setGradedContent(savedContent);
     }
-  }, [savedGrade]);
+  }, [savedGrade, savedContent]);
 
   useEffect(() => {
     return () => {
@@ -142,48 +143,48 @@ function TaskCard({
     };
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const content = e.target.value;
-    setValue(content);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const content = e.target.value;
+      setValue(content);
 
-    if (content.trim().length === 0) {
-      setSaveState("idle");
+      if (content.trim().length === 0) {
+        setSaveState("idle");
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        if (gradeTimerRef.current) clearTimeout(gradeTimerRef.current);
+        return;
+      }
+
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      setSaveState("saving");
+      saveTimerRef.current = setTimeout(async () => {
+        await upsert({ stepId, journeyId, taskIndex, content });
+        setSaveState("saved");
+      }, SAVE_DEBOUNCE_MS);
+
       if (gradeTimerRef.current) clearTimeout(gradeTimerRef.current);
-      return;
-    }
+      if (content.trim().length >= GRADE_MIN_LENGTH) {
+        gradeTimerRef.current = setTimeout(async () => {
+          setIsGrading(true);
+          setGradedContent(content);
+          try {
+            await gradeEntry({
+              stepId,
+              taskIndex,
+              taskTitle: task.title,
+              taskPrompts: task.prompts,
+              content,
+              targetRole,
+            });
+          } catch {
+            setIsGrading(false);
+          }
+        }, GRADE_DEBOUNCE_MS);
+      }
+    },
+    [upsert, gradeEntry, stepId, journeyId, taskIndex, task.title, task.prompts, targetRole],
+  );
 
-    // Debounced save (800ms)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveState("saving");
-    saveTimerRef.current = setTimeout(async () => {
-      await upsert({ stepId, journeyId, taskIndex, content });
-      setSaveState("saved");
-    }, SAVE_DEBOUNCE_MS);
-
-    // Debounced grade (2s) — independent, longer timer
-    if (gradeTimerRef.current) clearTimeout(gradeTimerRef.current);
-    if (content.trim().length >= GRADE_MIN_LENGTH) {
-      gradeTimerRef.current = setTimeout(async () => {
-        setIsGrading(true);
-        setGradedContent(content);
-        try {
-          await gradeEntry({
-            stepId,
-            taskIndex,
-            taskTitle: task.title,
-            taskPrompts: task.prompts,
-            content,
-            targetRole,
-          });
-        } catch {
-          setIsGrading(false);
-        }
-      }, GRADE_DEBOUNCE_MS);
-    }
-  };
-
-  const hasContent = value.trim().length > 0;
   const gradeIsStale = savedGrade && value !== gradedContent;
   const showGrade = savedGrade && !gradeIsStale;
   const isRegrading = showGrade && isGrading;
@@ -191,137 +192,101 @@ function TaskCard({
   const promptPlaceholder = task.prompts.map((p) => `${p}\n`).join("\n");
 
   return (
-    <div className="rounded-lg border border-border">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-muted/30"
-      >
-        <div className="mt-0.5 shrink-0">
-          {hasContent ? (
-            <CheckCircle2 className="h-4 w-4 text-success" />
-          ) : (
-            <Circle className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium">{task.title}</p>
-            {savedGrade && !isOpen && (
-              <GradeBadge letter={savedGrade.letter} />
-            )}
-            {isGrading && !isOpen && (
+    <div className="space-y-4 pt-1">
+      <h3 className="mt-6 text-center text-base font-semibold">{task.title}</h3>
+
+      <div>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Guidance
+        </h4>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          {task.guidance}
+        </p>
+      </div>
+
+      <div>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Writing prompts
+        </h4>
+        <ul className="mt-1 space-y-1">
+          {task.prompts.map((prompt, i) => (
+            <li
+              key={i}
+              className="flex gap-2 text-sm text-muted-foreground"
+            >
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
+              {prompt}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Your response
+          </h4>
+          <div className="flex items-center gap-3">
+            {isGrading && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Sparkles className="h-3 w-3 animate-pulse" />
+                Grading…
+              </span>
+            )}
+            {saveState === "saving" && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Saving…
+              </span>
+            )}
+            {saveState === "saved" && !isGrading && (
+              <span className="flex items-center gap-1 text-xs text-success">
+                <CheckCircle2 className="h-3 w-3" />
+                Saved
               </span>
             )}
           </div>
-          {!isOpen && hasContent && (
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-              {value}
-            </p>
-          )}
         </div>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+        <Textarea
+          className="mt-1.5 min-h-32"
+          placeholder={promptPlaceholder}
+          value={value}
+          onChange={handleChange}
         />
-      </button>
+        <div className="mt-1 flex justify-end">
+          <span
+            className={`text-xs ${
+              value.length > 0 && value.length < GRADE_MIN_LENGTH
+                ? "text-warning"
+                : "text-muted-foreground"
+            }`}
+          >
+            {value.length}
+            {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
+              <span> / {GRADE_MIN_LENGTH} min for grading</span>
+            )}
+          </span>
+        </div>
+      </div>
 
-      {isOpen && (
-        <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Guidance
-            </h4>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              {task.guidance}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Writing prompts
-            </h4>
-            <ul className="mt-1 space-y-1">
-              {task.prompts.map((prompt, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 text-sm text-muted-foreground"
-                >
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
-                  {prompt}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Your response
-              </h4>
-              <div className="flex items-center gap-3">
-                {isGrading && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Sparkles className="h-3 w-3 animate-pulse" />
-                    Grading…
-                  </span>
-                )}
-                {saveState === "saving" && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Saving…
-                  </span>
-                )}
-                {saveState === "saved" && !isGrading && (
-                  <span className="flex items-center gap-1 text-xs text-success">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Saved
-                  </span>
-                )}
-              </div>
-            </div>
-            <Textarea
-              className="mt-1.5 min-h-32"
-              placeholder={promptPlaceholder}
-              value={value}
-              onChange={handleChange}
-            />
-            <div className="mt-1 flex justify-end">
-              <span
-                className={`text-xs ${
-                  value.length > 0 && value.length < GRADE_MIN_LENGTH
-                    ? "text-warning"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {value.length}
-                {value.length > 0 && value.length < GRADE_MIN_LENGTH && (
-                  <span> / {GRADE_MIN_LENGTH} min for grading</span>
-                )}
+      {showGrade && (
+        <div className="relative">
+          {isRegrading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                Regrading…
               </span>
             </div>
-          </div>
-
-          {showGrade && (
-            <div className="relative">
-              {isRegrading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                    Regrading…
-                  </span>
-                </div>
-              )}
-              <GradeFeedback grade={savedGrade} />
-            </div>
           )}
+          <GradeFeedback grade={savedGrade} />
+        </div>
+      )}
 
-          {isGrading && !showGrade && (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-              Analysing your response…
-            </div>
-          )}
+      {isGrading && !showGrade && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+          Analysing your response…
         </div>
       )}
     </div>
@@ -341,24 +306,27 @@ export function EvidenceCaptureOutputDisplay({
   journeyId,
   targetRole,
 }: EvidenceCaptureOutputProps) {
-  const entries = useQuery(api.stepEntries.getByStep, { stepId });
+  const entries = useSuspenseQuery(api.stepEntries.getByStep, { stepId });
 
   const entryMap = new Map<
     number,
     { content: string; grade: EntryGrade | null }
   >();
-  if (entries) {
-    for (const entry of entries) {
-      entryMap.set(entry.taskIndex, {
-        content: entry.content,
-        grade: (entry.grade as EntryGrade | undefined) ?? null,
-      });
-    }
+  for (const entry of entries ?? []) {
+    entryMap.set(entry.taskIndex, {
+      content: entry.content,
+      grade: (entry.grade as EntryGrade | undefined) ?? null,
+    });
   }
 
   const completedCount = output.tasks.filter(
     (_, i) => (entryMap.get(i)?.content ?? "").trim().length > 0,
   ).length;
+
+  const firstIncomplete = output.tasks.findIndex(
+    (_, i) => (entryMap.get(i)?.content ?? "").trim().length === 0,
+  );
+  const defaultTab = firstIncomplete === -1 ? "0" : String(firstIncomplete);
 
   return (
     <div className="space-y-5">
@@ -375,20 +343,39 @@ export function EvidenceCaptureOutputDisplay({
         </span>
       </div>
 
-      <div className="space-y-3">
+      <Tabs defaultValue={defaultTab}>
+        <TabsList className="w-full flex-wrap justify-start" variant="line">
+          {output.tasks.map((task, i) => {
+            const hasContent = (entryMap.get(i)?.content ?? "").trim().length > 0;
+            const grade = entryMap.get(i)?.grade ?? null;
+            return (
+              <TabsTrigger key={i} value={String(i)} className="gap-1.5">
+                {hasContent ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+                Task {i + 1}
+                {grade && <GradeBadge letter={grade.letter} />}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+
         {output.tasks.map((task, i) => (
-          <TaskCard
-            key={i}
-            task={task}
-            taskIndex={i}
-            stepId={stepId}
-            journeyId={journeyId}
-            savedContent={entryMap.get(i)?.content ?? ""}
-            savedGrade={entryMap.get(i)?.grade ?? null}
-            targetRole={targetRole ?? "the target role"}
-          />
+          <TabsContent key={i} value={String(i)}>
+            <TaskPanel
+              task={task}
+              taskIndex={i}
+              stepId={stepId}
+              journeyId={journeyId}
+              savedContent={entryMap.get(i)?.content ?? ""}
+              savedGrade={entryMap.get(i)?.grade ?? null}
+              targetRole={targetRole ?? "the target role"}
+            />
+          </TabsContent>
         ))}
-      </div>
+      </Tabs>
 
       <div className="rounded-lg bg-muted/30 p-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

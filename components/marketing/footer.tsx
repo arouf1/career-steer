@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/logo";
 
 export function Footer() {
   return (
@@ -6,7 +7,7 @@ export function Footer() {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Career Steer. All rights reserved.
+            &copy; {new Date().getFullYear()} <Logo size="sm" className="inline text-muted-foreground" />. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link

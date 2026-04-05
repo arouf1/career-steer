@@ -78,6 +78,7 @@ export const gradeEntry = action({
     taskPrompts: v.array(v.string()),
     content: v.string(),
     targetRole: v.string(),
+    stepType: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
     const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
@@ -94,6 +95,7 @@ export const gradeEntry = action({
       taskPrompts: args.taskPrompts,
       content: args.content,
       targetRole: args.targetRole,
+      stepType: args.stepType,
     });
 
     const result = await generateObject({

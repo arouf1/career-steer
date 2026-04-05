@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { StepWorkspace } from "@/components/journey/step-workspace";
@@ -8,7 +9,6 @@ import {
   buildChatSystemPrompt,
   buildJobListingsContext,
 } from "@/lib/ai/prompts";
-import { Loader2 } from "lucide-react";
 
 export function StepView({
   journeyId,
@@ -17,20 +17,10 @@ export function StepView({
   journeyId: Id<"journeys">;
   stepId: Id<"steps">;
 }) {
-  const step = useQuery(api.steps.getById, { stepId });
-  const journey = useQuery(api.journeys.getById, {
-    journeyId,
-  });
-  const user = useQuery(api.users.getCurrentUser);
+  const step = useSuspenseQuery(api.steps.getById, { stepId });
+  const journey = useSuspenseQuery(api.journeys.getById, { journeyId });
+  const user = useSuspenseQuery(api.users.getCurrentUser);
   const cachedJobs = useQuery(api.jobSearches.getLatest, { journeyId });
-
-  if (step === undefined || journey === undefined || user === undefined) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   if (!step || !journey) {
     return (

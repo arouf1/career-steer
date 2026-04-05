@@ -158,7 +158,19 @@ OUTPUT REQUIREMENTS:
 - List each relevant skill with its current level (none, beginner, intermediate, advanced, expert), required level for the target role, and priority (high, medium, low).
 - Identify 2-3 quick wins (skills that are close to ready).
 - Identify 2-3 longer-term development areas.
-- For each gap, provide a descriptive search query that could find a real course, book, article, project, or community to help close it. Be specific about the skill, level, and context (e.g., "beginner online course for Tableau data visualisation for HR professionals"). Include a mix of resource types — aim for at least one article/blog post alongside courses and other types. We will use these queries to search for real resources, so make them detailed and realistic.`,
+- For each gap, provide a descriptive search query that could find a real course, book, article, project, or community to help close it. Be specific about the skill, level, and context (e.g., "beginner online course for Tableau data visualisation for HR professionals"). Include a mix of resource types — aim for at least one article/blog post alongside courses and other types. We will use these queries to search for real resources, so make them detailed and realistic.
+
+INTERACTIVE TASKS (required):
+For each skill where currentLevel < requiredLevel AND priority is high or medium, generate an interactive task. Order tasks by priority (high first). Each task must have:
+- skillName: must exactly match the skill name in the skills array.
+- title: e.g. "Evidence & Plan: Data Visualisation".
+- guidance: explain what evidence the user should write about their current capability with this skill, and what kind of action plan they should draft to close the gap. Reference the user's actual experience at ${context.currentRole} and what ${context.targetRole ?? "the target role"} demands. Be specific — mention what kinds of projects, certifications, or practice would be relevant.
+- prompts: 2-4 structured writing prompts mixing evidence and planning, e.g.:
+  - "Current Evidence: Describe a specific project or situation where you applied [skill]. What was your role and what did you deliver?"
+  - "Honest Assessment: How does your current ability compare to what the target role requires? Where are the specific gaps?"
+  - "Action Plan: What concrete steps will you take to move from [currentLevel] to [requiredLevel]? Include specific resources, timelines, or milestones."
+  - "Quick Win: What is one thing you could do this week to start closing this gap?"
+- Generate 2-6 tasks total. Ground every task in the user's actual strengths and the target role's requirements.`,
 
     interview_prep: `You are preparing the user for interviews for their target role.
 ${hasJobs ? "\nReal job postings for this role are provided below. Use their specific requirements, responsibilities, and qualifications to craft questions that reflect what these employers are actually looking for." : ""}
@@ -482,10 +494,31 @@ export function buildEntryGradePrompt(context: {
   taskPrompts: string[];
   content: string;
   targetRole: string;
+  stepType?: string;
 }): string {
+  const isGapAnalysis = context.stepType === "gap_analysis";
+
+  const gradingCriteria = isGapAnalysis
+    ? `GRADING CRITERIA:
+- A+ / A: Specific, concrete evidence demonstrating current capability with real examples. Action plan has measurable milestones, realistic timeline, and named resources or activities. Shows honest self-awareness about the gap.
+- A- / B+: Good evidence with real examples but missing some specificity. Plan exists with concrete steps but lacks clear milestones or timeline.
+- B / B-: Evidence is adequate but generic — no specific projects or outcomes. Plan is directional but vague (e.g. "take a course" without naming which one or when).
+- C+ / C: Very thin evidence. Plan is generic without specific actions or timeline.
+- D / F: Off-topic, copy-pasted, or essentially empty.`
+    : `GRADING CRITERIA:
+- A+ / A: Specific, quantified outcomes with clear business impact. Uses concrete numbers (£, %, headcount, timelines). Demonstrates strategic thinking relevant to the target role.
+- A- / B+: Good specifics but missing some quantification or strategic framing.
+- B / B-: Adequate but too vague or generic. Lacks concrete outcomes or numbers.
+- C+ / C: Very thin. Missing most required elements. No quantification.
+- D / F: Off-topic, copy-pasted, or essentially empty.`;
+
+  const taskContext = isGapAnalysis
+    ? "You are grading a user's skill gap self-assessment and action plan."
+    : "You are grading a user's written evidence for their career portfolio.";
+
   return `${BASE_PERSONA}
 
-You are grading a user's written evidence for their career portfolio. They are targeting a ${context.targetRole} role.
+${taskContext} They are targeting a ${context.targetRole} role.
 
 TASK: ${context.taskTitle}
 
@@ -497,17 +530,12 @@ USER'S RESPONSE:
 ${context.content}
 ---
 
-GRADING CRITERIA:
-- A+ / A: Specific, quantified outcomes with clear business impact. Uses concrete numbers (£, %, headcount, timelines). Demonstrates strategic thinking relevant to the target role.
-- A- / B+: Good specifics but missing some quantification or strategic framing.
-- B / B-: Adequate but too vague or generic. Lacks concrete outcomes or numbers.
-- C+ / C: Very thin. Missing most required elements. No quantification.
-- D / F: Off-topic, copy-pasted, or essentially empty.
+${gradingCriteria}
 
 RULES:
 - Grade honestly — do not inflate grades to be polite.
 - Strengths: identify 1-3 things the response does well. Be specific.
-- Improvements: give 1-3 concrete, actionable tips. Reference the grading criteria. For example, "Add the £ value of cost savings to strengthen the quantified outcome" rather than "Add more detail".
+- Improvements: give 1-3 concrete, actionable tips. Reference the grading criteria. For example, ${isGapAnalysis ? '"Name the specific online course or certification you plan to complete" rather than "Be more specific"' : '"Add the £ value of cost savings to strengthen the quantified outcome" rather than "Add more detail"'}.
 - Keep the summary to 1-2 sentences.
 - Use British English throughout.`;
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { StepType } from "@/lib/constants";
 import { STEP_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewSkeleton } from "@/components/ui/view-skeleton";
 import { GenerateButton } from "./generate-button";
 import { StepOutput } from "./step-output";
 import { ChatAssistant } from "./chat-assistant";
@@ -29,7 +31,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { LocationValue } from "@/lib/location";
-import type { EvidenceCaptureOutput, JobInsights } from "@/lib/ai/schemas";
+import type { EvidenceCaptureOutput, GapAnalysisOutput, JobInsights } from "@/lib/ai/schemas";
 
 const JOB_LISTING_STEP_TYPES: ReadonlySet<StepType> = new Set([
   "gap_analysis",
@@ -83,9 +85,11 @@ export function StepWorkspace({
   }, []);
 
   const isEvidenceCapture = step.type === "evidence_capture";
+  const isGapAnalysis = step.type === "gap_analysis";
+  const needsEntries = isEvidenceCapture || isGapAnalysis;
   const stepEntries = useQuery(
     api.stepEntries.getByStep,
-    isEvidenceCapture ? { stepId: step._id } : "skip",
+    needsEntries ? { stepId: step._id } : "skip",
   );
 
   const effectiveSystemPrompt = useMemo(() => {
@@ -115,8 +119,25 @@ export function StepWorkspace({
       }
     }
 
+    if (isGapAnalysis && stepEntries && stepEntries.length > 0) {
+      const gaOutput = step.output as GapAnalysisOutput | null;
+      const tasks = gaOutput?.tasks;
+
+      const lines = stepEntries
+        .filter((e) => e.content.trim().length > 0)
+        .sort((a, b) => a.taskIndex - b.taskIndex)
+        .map((e) => {
+          const title = tasks?.[e.taskIndex]?.title ?? `Skill ${e.taskIndex + 1}`;
+          return `### ${title}\n${e.content}`;
+        });
+
+      if (lines.length > 0) {
+        prompt = `${prompt}\n\nUSER'S GAP ANALYSIS RESPONSES:\nThe user has written the following skill evidence and action plans. You can see exactly what they have written. Reference their actual text when giving feedback or suggesting improvements.\n\n${lines.join("\n\n")}`;
+      }
+    }
+
     return prompt;
-  }, [chatSystemPrompt, freshJobs, isEvidenceCapture, stepEntries, step.output]);
+  }, [chatSystemPrompt, freshJobs, isEvidenceCapture, isGapAnalysis, stepEntries, step.output]);
 
   const hasTriggeredRef = useRef(false);
 
@@ -138,7 +159,7 @@ export function StepWorkspace({
   const showOutput = step.output != null;
 
   return (
-    <div className="mx-auto max-w-3xl pb-20">
+    <div className="mx-auto max-w-5xl pb-20">
       <div className="mb-6 flex items-center gap-3">
         <Link href={`/journey/${journeyId}/roadmap`}>
           <Button variant="ghost" size="sm">
@@ -174,31 +195,58 @@ export function StepWorkspace({
       )}
 
       {showOutput && (
-        <div className="mt-8 rounded-xl border border-border p-6">
+        <div className="mt-8 rounded-xl border border-border bg-card p-6">
           <StepOutput
             stepType={step.type}
             output={step.output as Record<string, unknown>}
             stepId={step._id}
             journeyId={journeyId}
             targetRole={targetRole}
+            marketInsightsSlot={
+              isGapAnalysis && showJobListings ? (
+                <div className="space-y-4">
+                  <Suspense fallback={<ViewSkeleton />}>
+                    <JobListings
+                      journeyId={journeyId}
+                      targetRole={targetRole!}
+                      userLocation={userLocation!}
+                      onJobSearchId={handleJobSearchId}
+                      onJobsFetched={handleJobsFetched}
+                    />
+                  </Suspense>
+                  {jobSearchId && targetRole && (
+                    <Suspense fallback={<JobInsightsSkeleton />}>
+                      <JobInsightsPanel
+                        jobSearchId={jobSearchId}
+                        targetRole={targetRole}
+                      />
+                    </Suspense>
+                  )}
+                </div>
+              ) : undefined
+            }
           />
         </div>
       )}
 
-      {showJobListings && (
+      {showJobListings && !isGapAnalysis && (
         <div className="mt-6 space-y-4">
-          <JobListings
-            journeyId={journeyId}
-            targetRole={targetRole}
-            userLocation={userLocation}
-            onJobSearchId={handleJobSearchId}
-            onJobsFetched={handleJobsFetched}
-          />
-          {jobSearchId && targetRole && (
-            <JobInsightsPanel
-              jobSearchId={jobSearchId}
-              targetRole={targetRole}
+          <Suspense fallback={<ViewSkeleton />}>
+            <JobListings
+              journeyId={journeyId}
+              targetRole={targetRole!}
+              userLocation={userLocation!}
+              onJobSearchId={handleJobSearchId}
+              onJobsFetched={handleJobsFetched}
             />
+          </Suspense>
+          {jobSearchId && targetRole && (
+            <Suspense fallback={<JobInsightsSkeleton />}>
+              <JobInsightsPanel
+                jobSearchId={jobSearchId}
+                targetRole={targetRole}
+              />
+            </Suspense>
           )}
         </div>
       )}
@@ -222,6 +270,25 @@ export function StepWorkspace({
   );
 }
 
+function JobInsightsSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-semibold text-foreground">
+          Market Insights
+        </span>
+      </div>
+      <div className="mt-4 space-y-3">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-[200px] w-full rounded-lg" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+      </div>
+    </div>
+  );
+}
+
 function JobInsightsPanel({
   jobSearchId,
   targetRole,
@@ -229,27 +296,8 @@ function JobInsightsPanel({
   jobSearchId: Id<"jobSearches">;
   targetRole: string;
 }) {
-  const insightsDoc = useQuery(api.jobInsights.getBySearchId, { jobSearchId });
+  const insightsDoc = useSuspenseQuery(api.jobInsights.getBySearchId, { jobSearchId });
   const [open, setOpen] = useState(true);
-
-  if (insightsDoc === undefined) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">
-            Market Insights
-          </span>
-        </div>
-        <div className="mt-4 space-y-3">
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-[200px] w-full rounded-lg" />
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-5/6" />
-        </div>
-      </div>
-    );
-  }
 
   if (!insightsDoc) return null;
 

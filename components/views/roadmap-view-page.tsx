@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useQuery, useAction } from "convex/react";
+import { useAction } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -14,33 +15,19 @@ export function RoadmapViewPage({
 }: {
   journeyId: Id<"journeys">;
 }) {
-  const journey = useQuery(api.journeys.getById, {
-    journeyId,
-  });
-  const roadmap = useQuery(api.roadmaps.getByJourneyId, {
-    journeyId,
-  });
-  const steps = useQuery(api.steps.getAllByJourney, {
-    journeyId,
-  });
+  const journey = useSuspenseQuery(api.journeys.getById, { journeyId });
+  const roadmap = useSuspenseQuery(api.roadmaps.getByJourneyId, { journeyId });
+  const steps = useSuspenseQuery(api.steps.getAllByJourney, { journeyId });
 
   const generateRoadmap = useAction(api.roadmaps.generateRoadmap);
   const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
-    if (roadmap !== undefined && !roadmap && journey && !hasTriggeredRef.current) {
+    if (!roadmap && journey && !hasTriggeredRef.current) {
       hasTriggeredRef.current = true;
       generateRoadmap({ journeyId });
     }
   }, [roadmap, journey, journeyId, generateRoadmap]);
-
-  if (journey === undefined || roadmap === undefined) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   if (!journey) {
     return (

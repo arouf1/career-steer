@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,20 +12,12 @@ import { CareerPathMap } from "@/components/diagnostic/career-path-map";
 
 export function DiagnosticResultsView() {
   const router = useRouter();
-  const diagnostic = useQuery(api.diagnostics.getLatestForUser);
-  const user = useQuery(api.users.getCurrentUser);
+  const diagnostic = useSuspenseQuery(api.diagnostics.getLatestForUser);
+  const user = useSuspenseQuery(api.users.getCurrentUser);
   const createJourney = useMutation(api.journeys.create);
 
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-
-  if (diagnostic === undefined || user === undefined) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-      </div>
-    );
-  }
 
   if (!diagnostic || !diagnostic.analysis) {
     return (

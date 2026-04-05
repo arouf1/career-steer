@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
+import { useSuspenseQuery } from "@/hooks/use-suspense-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -61,7 +62,7 @@ export function JobListings({
   onJobSearchId,
   onJobsFetched,
 }: JobListingsProps) {
-  const cached = useQuery(api.jobSearches.getLatest, { journeyId });
+  const cached = useSuspenseQuery(api.jobSearches.getLatest, { journeyId });
   const saveJobs = useMutation(api.jobSearches.save);
 
   const [freshJobs, setFreshJobs] = useState<JobResult[] | null>(null);
@@ -72,7 +73,7 @@ export function JobListings({
   const hasFetchedRef = useRef(false);
 
   const jobs: JobResult[] = freshJobs ?? cached?.jobs ?? [];
-  const isLoading = cached === undefined || isFetching;
+  const isLoading = isFetching;
 
   const onJobSearchIdRef = useRef(onJobSearchId);
   onJobSearchIdRef.current = onJobSearchId;
@@ -80,7 +81,7 @@ export function JobListings({
   onJobsFetchedRef.current = onJobsFetched;
 
   useEffect(() => {
-    if (cached !== undefined && cached?._id) {
+    if (cached?._id) {
       onJobSearchIdRef.current?.(cached._id);
     }
     if (cached?.jobs && !freshJobs) {
@@ -127,7 +128,6 @@ export function JobListings({
   }, []);
 
   useEffect(() => {
-    if (cached === undefined) return;
     if (hasFetchedRef.current) return;
 
     if (!cached || cached.isStale) {
